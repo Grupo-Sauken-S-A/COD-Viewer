@@ -1,0 +1,293 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+ 
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+  }
+ 
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+}
+ 
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-lg shadow-lg border border-gray-200 w-full max-w-full mx-2 overflow-hidden;
+  }
+  
+  .card-header {
+    @apply flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 border-b border-gray-200 bg-white sticky top-0 z-10;
+  }
+  
+  .card-title {
+    @apply text-2xl font-bold text-gray-900;
+  }
+  
+  .card-content {
+    @apply p-6 space-y-6 overflow-auto;
+  }
+  
+  .upload-zone {
+    @apply flex flex-col items-center justify-center p-8 border-2 border-gray-300 border-dashed rounded-lg 
+           hover:border-blue-500 transition-colors cursor-pointer bg-gray-50;
+  }
+  
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white 
+           bg-blue-600 hover:bg-blue-700 rounded-lg shadow transition-colors 
+           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+  }
+  
+  .section-container {
+    @apply p-4 border border-gray-200 rounded-lg bg-white shadow-sm space-y-4;
+  }
+  
+  .grid-layout {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-4;
+  }
+  
+  .field-container {
+    @apply p-3 rounded-lg bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors duration-200;
+  }
+  
+  .field-required {
+    @apply border-l-4 border-l-amber-500;
+  }
+  
+  .field-optional {
+    @apply border-l-4 border-l-gray-300;
+  }
+  
+  .field-label {
+    @apply flex items-center gap-1 text-sm font-semibold text-gray-800 mb-1;
+  }
+  
+  .field-value {
+    @apply text-sm text-gray-600 break-words;
+  }
+
+  .field-value a {
+    @apply text-blue-600 hover:text-blue-800 hover:underline transition-colors duration-200;
+  }
+  
+  .item-card {
+    @apply p-4 border-l-4 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow duration-200;
+  }
+  
+  .item-card.invoice {
+    @apply border-l-blue-500 bg-blue-50 hover:bg-blue-100;
+    & > div {
+      @apply flex flex-row justify-between items-center gap-4;
+    }
+  }
+
+  .item-card.invoice .field-container {
+    @apply flex-1 min-w-0;
+  }
+  
+  .item-card.goods {
+    @apply border-l-green-500 bg-green-50 hover:bg-green-100 space-y-4;
+  }
+
+  .item-card.goods .flex-row-container {
+    @apply flex flex-col sm:flex-row gap-4 w-full;
+  }
+
+  .item-card.goods .flex-row-container .field-container {
+    @apply flex-1 min-w-0;
+  }
+  
+  .signature-status {
+    @apply flex items-center gap-2 p-3 rounded-lg border text-sm;
+  }
+
+  code {
+    @apply font-mono text-sm bg-gray-100 px-1.5 py-0.5 rounded;
+  }
+
+  .alert-success {
+    @apply bg-green-50 border-green-200 text-green-800;
+  }
+
+  .alert-error {
+    @apply bg-red-50 border-red-200 text-red-800;
+  }
+
+  /* Mejoras para responsividad */
+  .layout-root {
+    @apply min-h-screen bg-gray-50 px-2 py-4;
+  }
+
+  .content-container {
+    @apply w-full mx-auto;
+  }
+
+  .flex-row-container {
+    @apply flex flex-col sm:flex-row gap-4 w-full;
+  }
+
+  /* Ajustes responsivos por breakpoint */
+  @screen sm {
+    .card-content {
+      @apply p-6;
+    }
+    
+    .section-container {
+      @apply p-4;
+    }
+    
+    .field-container {
+      @apply p-3;
+    }
+
+    .card {
+      @apply mx-4;
+    }
+  }
+
+  @screen lg {
+    .card-content {
+      @apply p-8;
+    }
+
+    .card {
+      @apply mx-6;
+    }
+  }
+
+  /* Mejoras visuales */
+  .hover-effect {
+    @apply transition-all duration-200 ease-in-out;
+  }
+
+  .shadow-hover {
+    @apply hover:shadow-lg;
+  }
+
+  .interactive-hover {
+    @apply hover:bg-gray-100 transition-colors duration-200;
+  }
+
+  .text-label {
+    @apply text-sm font-semibold text-gray-800;
+  }
+
+  .text-value {
+    @apply text-sm text-gray-600;
+  }
+
+/* Estilos adicionales para los botones de acción */
+.btn-secondary {
+  @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 
+         bg-white hover:bg-gray-50 border border-gray-300 rounded-lg shadow-sm transition-colors 
+         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+}
+
+.btn-success {
+  @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white 
+         bg-green-600 hover:bg-green-700 rounded-lg shadow transition-colors 
+         focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2;
+}
+
+.btn-warning {
+  @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white 
+         bg-amber-600 hover:bg-amber-700 rounded-lg shadow transition-colors 
+         focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2;
+}
+
+/* Animación para el spinner de carga */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Mejoras para responsividad de los botones */
+@screen sm {
+  .card-header .btn-primary,
+  .card-header .btn-secondary {
+    @apply min-w-[120px];
+  }
+}
+
+/* Mejoras para accesibilidad */
+.btn-primary:disabled,
+.btn-secondary:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.btn-primary:disabled:hover,
+.btn-secondary:disabled:hover {
+  @apply bg-blue-600 border-gray-300;
+}
+
+/* Estilos para campos con error */
+.field-error {
+  background-color: #fef2f2; /* bg-red-50 */
+  border-left: 4px solid #ef4444; /* border-l-red-500 */
+  padding-left: 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.field-value-error {
+  color: #dc2626; /* text-red-600 */
+  font-weight: 500;
+}
+
+/* Opcional: Efecto hover para campos con error */
+.field-error:hover {
+  background-color: #fee2e2; /* bg-red-100 */
+}
+
+}
