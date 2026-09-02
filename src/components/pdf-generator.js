@@ -2,6 +2,13 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { getCountryName } from './country-codes';
 import { XML_SPECIFICATIONS } from './xml-specifications.js';
+import {
+  AGREEMENT_MAPPING,
+  getFieldRequirement as getFieldRequirementSpec,
+  getElementWithSpecPriority,
+  getValueFieldWithSpecPriority as getValueFieldWithSpecPrioritySpec,
+  getOperatorContent as getOperatorContentSpec
+} from '@/lib/cod-spec';
 
 // Configuración de colores y estilos
 const COLORS = {
@@ -31,170 +38,19 @@ const FONTS = {
   signatureText: { size: 9, weight: 'normal' }  
 };
 
-// Mapeo de acuerdos (copiado del CODViewer)
-const AGREEMENT_MAPPING = {
-  'A13': 'A18',
-  'A14': 'A18', 
-  'A57': 'A18',
-  'A18': 'A18',
-  'A35': 'A35',
-  'A72': 'A72'
-};
-
 // Función auxiliar para obtener contenido de operadores (actualizada)
 const getOperatorContent = (xmlData, fieldName, xmlSpecifications, currentVersion, currentAgreement) => {
-  const getMappedAgreement = (originalAgreement) => {
-    return AGREEMENT_MAPPING[originalAgreement] || originalAgreement;
-  };
-
-  const getFieldRequirement = (elementName) => {
-    if (!xmlSpecifications || !currentVersion || !currentAgreement) {
-      return 'O';
-    }
-
-    const elementSpec = xmlSpecifications.especificaciones[`<${elementName}>`];
-    if (!elementSpec) {
-      return 'NC';
-    }
-
-    const versionSpec = elementSpec[currentVersion];
-    if (!versionSpec) {
-      return 'NC';
-    }
-
-    const mappedAgreement = getMappedAgreement(currentAgreement);
-    const requirement = versionSpec[mappedAgreement];
-    
-    return requirement || 'NC';
-  };
-
-  const thirdOpReq = getFieldRequirement(`ThirdOp${fieldName}`);
-  const op3cReq = getFieldRequirement(`Op3c${fieldName}`);
-  
-  if (thirdOpReq !== 'NC') {
-    const xmlValue = xmlData.querySelector(`ThirdOp${fieldName}`)?.textContent?.trim();
-    return {
-      value: xmlValue,
-      foundElement: `ThirdOp${fieldName}`,
-      requirement: thirdOpReq,
-      family: 'ThirdOp'
-    };
-  } else if (op3cReq !== 'NC') {
-    const xmlValue = xmlData.querySelector(`Op3c${fieldName}`)?.textContent?.trim();
-    return {
-      value: xmlValue,
-      foundElement: `Op3c${fieldName}`,
-      requirement: op3cReq,
-      family: 'Op3c'
-    };
-  }
-  
-  return { value: null, foundElement: null, requirement: 'NC', family: null };
+  return getOperatorContentSpec(xmlSpecifications, currentVersion, currentAgreement, xmlData, fieldName);
 };
 
 // Función auxiliar para obtener elementos con alternativas (actualizada)
 const getElementWithAlternatives = (xmlData, primaryElement, alternativeElements = [], xmlSpecifications, currentVersion, currentAgreement) => {
-  const getMappedAgreement = (originalAgreement) => {
-    return AGREEMENT_MAPPING[originalAgreement] || originalAgreement;
-  };
-
-  const getFieldRequirement = (elementName) => {
-    if (!xmlSpecifications || !currentVersion || !currentAgreement) {
-      return 'O';
-    }
-
-    const elementSpec = xmlSpecifications.especificaciones[`<${elementName}>`];
-    if (!elementSpec) {
-      return 'NC';
-    }
-
-    const versionSpec = elementSpec[currentVersion];
-    if (!versionSpec) {
-      return 'NC';
-    }
-
-    const mappedAgreement = getMappedAgreement(currentAgreement);
-    const requirement = versionSpec[mappedAgreement];
-    
-    return requirement || 'NC';
-  };
-
-  const allElements = [primaryElement, ...alternativeElements];
-  
-  let selectedElement = null;
-  let selectedRequirement = 'NC';
-  
-  for (const element of allElements) {
-    const requirement = getFieldRequirement(element);
-    if (requirement !== 'NC') {
-      selectedElement = element;
-      selectedRequirement = requirement;
-      break;
-    }
-  }
-  
-  if (!selectedElement) {
-    return { value: null, foundElement: null, requirement: 'NC' };
-  }
-  
-  const xmlValue = xmlData.querySelector(selectedElement)?.textContent?.trim();
-  
-  return { 
-    value: xmlValue, 
-    foundElement: selectedElement,
-    requirement: selectedRequirement
-  };
+  return getElementWithSpecPriority(xmlSpecifications, currentVersion, currentAgreement, xmlData, primaryElement, alternativeElements);
 };
 
 // Nueva función para obtener el campo de valor con prioridad de especificación
 const getValueFieldWithSpecPriority = (good, xmlSpecifications, currentVersion, currentAgreement) => {
-  const getMappedAgreement = (originalAgreement) => {
-    return AGREEMENT_MAPPING[originalAgreement] || originalAgreement;
-  };
-
-  const getFieldRequirement = (elementName) => {
-    if (!xmlSpecifications || !currentVersion || !currentAgreement) {
-      return 'O';
-    }
-
-    const elementSpec = xmlSpecifications.especificaciones[`<${elementName}>`];
-    if (!elementSpec) {
-      return 'NC';
-    }
-
-    const versionSpec = elementSpec[currentVersion];
-    if (!versionSpec) {
-      return 'NC';
-    }
-
-    const mappedAgreement = getMappedAgreement(currentAgreement);
-    const requirement = versionSpec[mappedAgreement];
-    
-    return requirement || 'NC';
-  };
-
-  const valueReq = getFieldRequirement('GoodsItemValue');
-  const fobReq = getFieldRequirement('GoodsItemFOB');
-  
-  if (valueReq !== 'NC') {
-    const xmlValue = good.querySelector('GoodsItemValue')?.textContent?.trim();
-    return {
-      value: xmlValue,
-      foundElement: 'GoodsItemValue',
-      requirement: valueReq,
-      type: 'Value'
-    };
-  } else if (fobReq !== 'NC') {
-    const xmlValue = good.querySelector('GoodsItemFOB')?.textContent?.trim();
-    return {
-      value: xmlValue,
-      foundElement: 'GoodsItemFOB', 
-      requirement: fobReq,
-      type: 'FOB'
-    };
-  }
-  
-  return { value: null, foundElement: null, requirement: 'NC', type: null };
+  return getValueFieldWithSpecPrioritySpec(xmlSpecifications, currentVersion, currentAgreement, good);
 };
 
 // Función para formatear fechas
@@ -257,9 +113,7 @@ class PDFGenerator {
     this.currentVersion = xmlData.querySelector('CODVer')?.textContent?.trim();
     this.originalAgreement = xmlData.querySelector('AgreementAcronym')?.textContent?.trim();
     this.currentAgreement = this.originalAgreement;
-    
-    console.log('PDF Generator - Versión:', this.currentVersion, 'Acuerdo:', this.originalAgreement);
-    
+
     // Configurar propiedades del documento
     this.doc.setProperties({
       title: 'Certificado de Origen Digital - COD - ALADI',
@@ -270,39 +124,9 @@ class PDFGenerator {
     });
   }
 
-  // Función para obtener el mapeo de acuerdo
-  getMappedAgreement(originalAgreement) {
-    return AGREEMENT_MAPPING[originalAgreement] || originalAgreement;
-  }
-
   // Función para obtener requerimiento de campo
   getFieldRequirement(elementName) {
-    if (!this.xmlSpecifications || !this.currentVersion || !this.currentAgreement) {
-      console.warn(`Falta información para validar ${elementName}:`, { 
-        currentVersion: this.currentVersion, 
-        currentAgreement: this.currentAgreement 
-      });
-      return 'O';
-    }
-
-    const elementSpec = this.xmlSpecifications.especificaciones[`<${elementName}>`];
-    if (!elementSpec) {
-      console.warn(`Elemento ${elementName} no encontrado en especificaciones`);
-      return 'NC';
-    }
-
-    const versionSpec = elementSpec[this.currentVersion];
-    if (!versionSpec) {
-      console.warn(`Versión ${this.currentVersion} no encontrada para elemento ${elementName}`);
-      return 'NC';
-    }
-
-    const mappedAgreement = this.getMappedAgreement(this.currentAgreement);
-    const requirement = versionSpec[mappedAgreement];
-    
-    console.log(`Elemento: ${elementName}, Versión: ${this.currentVersion}, Acuerdo: ${this.currentAgreement} -> ${mappedAgreement}, Requerimiento: ${requirement}`);
-    
-    return requirement || 'NC';
+    return getFieldRequirementSpec(this.xmlSpecifications, this.currentVersion, this.currentAgreement, elementName);
   }
 
   // Función para verificar si debe mostrar un campo
@@ -1365,20 +1189,17 @@ class PDFGenerator {
 // Función principal para generar y descargar PDF (actualizada)
 export const generateCODPDF = async (xmlData) => {
   try {
-    console.log('Iniciando generación de PDF con validaciones...');
-    
     const generator = new PDFGenerator(xmlData);
     const doc = await generator.generatePDF(xmlData);
-    
+
     // Generar nombre del archivo
     const certificateId = xmlData.querySelector('CertificateID')?.textContent || 'COD';
     const timestamp = new Date().toISOString().slice(0, 10);
     const filename = `COD_${certificateId}_${timestamp}.pdf`;
-    
+
     // Descargar el PDF
     doc.save(filename);
-    
-    console.log(`PDF generado exitosamente: ${filename}`);
+
     return { success: true, filename };
   } catch (error) {
     console.error('Error al generar PDF:', error);

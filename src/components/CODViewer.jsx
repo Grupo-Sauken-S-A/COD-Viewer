@@ -6,15 +6,15 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Field, Section, DocumentSignatures } from './signature-components';
 import { generateCODPDF } from './pdf-generator';
 import { XML_SPECIFICATIONS } from './xml-specifications.js';
-
-const AGREEMENT_MAPPING = {
-  'A13': 'A18',
-  'A14': 'A18', 
-  'A57': 'A18',
-  'A18': 'A18',
-  'A35': 'A35',
-  'A72': 'A72'
-};
+import {
+  AGREEMENT_MAPPING,
+  getFieldRequirement as getFieldRequirementSpec,
+  getElementWithSpecPriority as getElementWithSpecPrioritySpec,
+  getValueFieldWithSpecPriority as getValueFieldWithSpecPrioritySpec,
+  getOperatorContent as getOperatorContentSpec,
+  getEHCityFieldWithSpecPriority as getEHCityFieldWithSpecPrioritySpec,
+  isRequiredFieldEmpty
+} from '@/lib/cod-spec';
 
 const CODViewer = () => {
   const [xmlData, setXmlData] = useState(null);
@@ -26,34 +26,8 @@ const CODViewer = () => {
   const [currentAgreement, setCurrentAgreement] = useState(null);
   const [originalAgreement, setOriginalAgreement] = useState(null);
 
-  const getMappedAgreement = (originalAgreement) => {
-    return AGREEMENT_MAPPING[originalAgreement] || originalAgreement;
-  };
-
   const getFieldRequirement = (elementName) => {
-    if (!xmlSpecifications || !currentVersion || !currentAgreement) {
-      console.warn(`Falta información para validar ${elementName}:`, { currentVersion, currentAgreement });
-      return 'O';
-    }
-
-    const elementSpec = xmlSpecifications.especificaciones[`<${elementName}>`];
-    if (!elementSpec) {
-      console.warn(`Elemento ${elementName} no encontrado en especificaciones`);
-      return 'NC';
-    }
-
-    const versionSpec = elementSpec[currentVersion];
-    if (!versionSpec) {
-      console.warn(`Versión ${currentVersion} no encontrada para elemento ${elementName}`);
-      return 'NC';
-    }
-
-    const mappedAgreement = getMappedAgreement(currentAgreement);
-    const requirement = versionSpec[mappedAgreement];
-    
-    console.log(`Elemento: ${elementName}, Versión: ${currentVersion}, Acuerdo: ${currentAgreement} -> ${mappedAgreement}, Requerimiento: ${requirement}`);
-    
-    return requirement || 'NC';
+    return getFieldRequirementSpec(xmlSpecifications, currentVersion, currentAgreement, elementName);
   };
 
   const shouldShowField = (elementName) => {
@@ -82,106 +56,19 @@ const CODViewer = () => {
   };
 
   const getElementWithSpecPriority = (xmlData, primaryElement, alternativeElements = []) => {
-    const allElements = [primaryElement, ...alternativeElements];
-    
-    let selectedElement = null;
-    let selectedRequirement = 'NC';
-    
-    for (const element of allElements) {
-      const requirement = getFieldRequirement(element);
-      if (requirement !== 'NC') {
-        selectedElement = element;
-        selectedRequirement = requirement;
-        break;
-      }
-    }
-    
-    if (!selectedElement) {
-      return { value: null, foundElement: null, requirement: 'NC' };
-    }
-    
-    const xmlValue = xmlData.querySelector(selectedElement)?.textContent?.trim();
-    
-    return { 
-      value: xmlValue, 
-      foundElement: selectedElement,
-      requirement: selectedRequirement
-    };
+    return getElementWithSpecPrioritySpec(xmlSpecifications, currentVersion, currentAgreement, xmlData, primaryElement, alternativeElements);
   };
 
   const getValueFieldWithSpecPriority = (good) => {
-    const valueReq = getFieldRequirement('GoodsItemValue');
-    const fobReq = getFieldRequirement('GoodsItemFOB');
-    
-    if (valueReq !== 'NC') {
-      const xmlValue = good.querySelector('GoodsItemValue')?.textContent?.trim();
-      return {
-        value: xmlValue,
-        foundElement: 'GoodsItemValue',
-        requirement: valueReq,
-        type: 'Value'
-      };
-    } else if (fobReq !== 'NC') {
-      const xmlValue = good.querySelector('GoodsItemFOB')?.textContent?.trim();
-      return {
-        value: xmlValue,
-        foundElement: 'GoodsItemFOB', 
-        requirement: fobReq,
-        type: 'FOB'
-      };
-    }
-    
-    return { value: null, foundElement: null, requirement: 'NC', type: null };
+    return getValueFieldWithSpecPrioritySpec(xmlSpecifications, currentVersion, currentAgreement, good);
   };
 
   const getOperatorContent = (xmlData, fieldName) => {
-    const thirdOpReq = getFieldRequirement(`ThirdOp${fieldName}`);
-    const op3cReq = getFieldRequirement(`Op3c${fieldName}`);
-    
-    if (thirdOpReq !== 'NC') {
-      const xmlValue = xmlData.querySelector(`ThirdOp${fieldName}`)?.textContent?.trim();
-      return {
-        value: xmlValue,
-        foundElement: `ThirdOp${fieldName}`,
-        requirement: thirdOpReq,
-        family: 'ThirdOp'
-      };
-    } else if (op3cReq !== 'NC') {
-      const xmlValue = xmlData.querySelector(`Op3c${fieldName}`)?.textContent?.trim();
-      return {
-        value: xmlValue,
-        foundElement: `Op3c${fieldName}`,
-        requirement: op3cReq,
-        family: 'Op3c'
-      };
-    }
-    
-    return { value: null, foundElement: null, requirement: 'NC', family: null };
+    return getOperatorContentSpec(xmlSpecifications, currentVersion, currentAgreement, xmlData, fieldName);
   };
 
   const getEHCityFieldWithSpecPriority = (ehElement) => {
-    const cityReq = getFieldRequirement('EHCity');
-    const localityReq = getFieldRequirement('EHCityLocality');
-    
-    if (cityReq !== 'NC') {
-      const xmlValue = ehElement?.querySelector('EHCity')?.textContent?.trim();
-      return {
-        value: xmlValue,
-        foundElement: 'EHCity',
-        requirement: cityReq,
-        version: 'legacy'
-      };
-    } else if (localityReq !== 'NC') {
-      const xmlValue = ehElement?.querySelector('EHCityLocality')?.textContent?.trim();
-      return {
-        value: xmlValue,
-        foundElement: 'EHCityLocality',
-        requirement: localityReq,
-        version: 'current'
-      };
-    }
-    
-    return { value: null, foundElement: null, requirement: 'NC', version: null };
+    return getEHCityFieldWithSpecPrioritySpec(xmlSpecifications, currentVersion, currentAgreement, ehElement);
   };
 
   const shouldShowThirdOperatorSection = () => {
@@ -201,10 +88,6 @@ const CODViewer = () => {
       const requirement = getFieldRequirement(elementName);
       return requirement !== 'NC';
     });
-  };
-
-  const isRequiredFieldEmpty = (value, requirement) => {
-    return requirement === 'M' && (!value || value.trim() === '');
   };
 
   const getFieldValue = (rawValue, requirement) => {
@@ -250,8 +133,6 @@ const CODViewer = () => {
       const version = xmlDoc.querySelector('CODVer')?.textContent?.trim();
       const agreement = xmlDoc.querySelector('AgreementAcronym')?.textContent?.trim();
 
-      console.log('XML procesado - Versión:', version, 'Acuerdo:', agreement);
-
       if (version) {
         setCurrentVersion(version);
       }
@@ -293,9 +174,7 @@ const CODViewer = () => {
       setPdfGenerating(true);
       const result = await generateCODPDF(xmlData);
       
-      if (result.success) {
-        console.log(`PDF generado exitosamente: ${result.filename}`);
-      } else {
+      if (!result.success) {
         setError(`Error al generar PDF: ${result.error}`);
       }
     } catch (err) {
@@ -306,7 +185,6 @@ const CODViewer = () => {
   };
 
   useEffect(() => {
-    console.log('Cargando especificaciones XML...');
     setXmlSpecifications(XML_SPECIFICATIONS);
   }, []);
 
