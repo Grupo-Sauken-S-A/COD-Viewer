@@ -1,6 +1,6 @@
 {
   "name": "cod-viewer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.23",
