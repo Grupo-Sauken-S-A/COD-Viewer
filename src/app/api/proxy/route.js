@@ -12,6 +12,8 @@ export async function GET(request) {
             );
         }
 
+        // Sin allowlist de host/esquema a propósito: los certificados XML pueden
+        // estar alojados en cualquier red, interna o externa, según el emisor.
         const response = await fetch(url);
         const xmlContent = await response.text();
 
