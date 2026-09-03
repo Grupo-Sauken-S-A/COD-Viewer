@@ -161,7 +161,7 @@ Se comparó programáticamente la columna **4.1.1** de esta tabla contra las Tab
 
 - **`GoodsInvoiceOrderNo`**: confirmado por el dueño del proyecto que no hace falta mostrarlo.
 - **`PACComments`** y **`HSVer`**: existen en el estándar ALADI (específicos de A18, ninguno es M) pero confirmados como no usados en los acuerdos vigentes actuales — decisión consciente de no agregarlos a la UI.
-- **`UnloadingPortName`**: sigue sin una explicación clara de por qué no se usa — no resuelto.
+- **`UnloadingPortName`** ("Puerto de Descarga", contraparte de `TransportPortOfLoading`/"Puerto de Carga", que sí se muestra): confirmado por el dueño del proyecto (2026-09-03) que **nunca se usó** en ningún COD real de los acuerdos/versiones que maneja esta app — se cargó en la tabla como M en casi todas las combinaciones (venía así del estándar ALADI/Rev13), pero en la práctica no aporta nada y no debe mostrarse nunca. Se bajó a `O` en las 12 combinaciones para que, si alguna vez aparece con contenido en un XML real, no se marque como "dato inesperado" (`getUnexpectedElements` solo reporta elementos que deberían ser `NC`) — y sigue sin tener ningún código que lo lea o lo muestre, a propósito.
 - **`InvoiceQty`** y **`GoodsQty`**: sí se leen, pero **solo** para decidir si se muestra la sección "Facturas Comerciales"/"Lista de Mercaderías" — su valor nunca se pinta como campo visible.
 
 ## 5. Reglas de alternancia entre campos
@@ -342,7 +342,6 @@ Generado con `jspdf` + `jspdf-autotable`, misma lógica de negocio que la vista 
 
 - **Sin validar contra XSD** (sección 6) — pausado a pedido explícito del dueño del proyecto.
 - **Firmas**: se verifica integridad criptográfica real desde v1.2.0 (sección 8), pero sigue sin validarse la cadena de confianza del certificado ni su estado de revocación (OCSP/CRL) — deliberado, no hay plan de agregarlo.
-- `UnloadingPortName` (sección 4) sigue sin explicación de por qué no se usa.
 - Actualizaciones mayores de dependencias (React 18→19, Tailwind 3→4, etc.) diferidas a propósito — no hay apuro, se evalúan cuando haga falta una funcionalidad que las requiera.
 
-**Resuelto desde la redacción original de esta sección** (dejado como referencia histórica): la falta de tests automatizados (v1.1.0, sección de tests en el `README`) y el `Access-Control-Allow-Origin: *` global en `next.config.js` (removido, ver CHANGELOG v1.2.0).
+**Resuelto desde la redacción original de esta sección** (dejado como referencia histórica): la falta de tests automatizados (v1.1.0, sección de tests en el `README`), el `Access-Control-Allow-Origin: *` global en `next.config.js` (removido, ver CHANGELOG v1.2.0), y `UnloadingPortName` (sección 4 — confirmado que nunca se usa, bajado a O en toda la tabla).

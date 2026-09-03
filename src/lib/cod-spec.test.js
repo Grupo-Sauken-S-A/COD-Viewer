@@ -83,6 +83,18 @@ describe('getFieldRequirement', () => {
       expect(getFieldRequirement(XML_SPECIFICATIONS, '4.1.1', agreement, 'CertificateControlCode')).toBe('O');
     }
   });
+
+  it('UnloadingPortName es Opcional en las 12 combinaciones — confirmado que nunca se usa', () => {
+    // Regresión: la tabla lo traía como M en casi todas las combinaciones (heredado del
+    // estándar ALADI), pero el usuario confirmó que nunca aparece en ningún COD real de los
+    // acuerdos/versiones que maneja esta app. Se baja a O para que, si alguna vez aparece con
+    // contenido, no se marque como "dato inesperado" — sigue sin código que lo lea o lo muestre.
+    for (const version of ['1.8.0', '1.8.2', '1.8.3', '4.1.1']) {
+      for (const agreement of ['A18', 'A35', 'A72']) {
+        expect(getFieldRequirement(XML_SPECIFICATIONS, version, agreement, 'UnloadingPortName')).toBe('O');
+      }
+    }
+  });
 });
 
 describe('getElementWithSpecPriority', () => {

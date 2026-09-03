@@ -5,6 +5,11 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [Unreleased]
+
+### Fixed
+- `<UnloadingPortName>` pasa de M (en casi todas las combinaciones) a O en las 12 combinaciones de versión/acuerdo: confirmado por el dueño del proyecto que nunca se usa en ningún COD real de los acuerdos/versiones que maneja esta app. Sigue sin código que lo lea o lo muestre (a propósito); el cambio evita que se marque como "dato inesperado" si alguna vez aparece con contenido.
+
 ## [1.2.0] - 2026-09-03
 
 ### Added
