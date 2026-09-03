@@ -337,11 +337,13 @@ Generado con `jspdf` + `jspdf-autotable`, misma lógica de negocio que la vista 
 
 - **El proxy (`/api/proxy`) no tiene allowlist de host ni de esquema, a propósito**: los certificados XML pueden estar alojados en cualquier red, interna o externa, según el emisor. Esto está documentado con un comentario en el propio código para que no se "corrija" por error en el futuro.
 - El proxy sí valida `Content-Type` de la respuesta remota (sección 6) y el código HTTP (`response.ok`) — pero no restringe a qué *host* se puede apuntar.
+- **Cadena de confianza del certificado y revocación (OCSP/CRL): NO SOPORTADO, decisión permanente, no una tarea pendiente.** El dueño del proyecto confirmó explícitamente (2026-09-03) que no quiere implementar esto en esta aplicación — no es "todavía no", es una funcionalidad fuera del alcance de cod-viewer de forma definitiva. La app verifica integridad criptográfica real de la firma (sección 8, desde v1.2.0) y vigencia temporal del certificado, pero nunca va a validar contra una Autoridad Certificante raíz ni consultar OCSP/CRL. Esto se le informa al usuario explícitamente en la nota que acompaña el estado de cada firma (`getSignatureStatusDisplay`, `src/components/signature-utils.js`), tanto en pantalla como en el PDF — ver sección 8.
 
 ## 13. Deuda conocida / pendiente explícito
 
 - **Sin validar contra XSD** (sección 6) — pausado a pedido explícito del dueño del proyecto.
-- **Firmas**: se verifica integridad criptográfica real desde v1.2.0 (sección 8), pero sigue sin validarse la cadena de confianza del certificado ni su estado de revocación (OCSP/CRL) — deliberado, no hay plan de agregarlo.
 - Actualizaciones mayores de dependencias (React 18→19, Tailwind 3→4, etc.) diferidas a propósito — no hay apuro, se evalúan cuando haga falta una funcionalidad que las requiera.
 
 **Resuelto desde la redacción original de esta sección** (dejado como referencia histórica): la falta de tests automatizados (v1.1.0, sección de tests en el `README`), el `Access-Control-Allow-Origin: *` global en `next.config.js` (removido, ver CHANGELOG v1.2.0), y `UnloadingPortName` (sección 4 — confirmado que nunca se usa, bajado a O en toda la tabla).
+
+**Movido de esta sección a "Decisiones de seguridad deliberadas" (sección 12)**: la falta de validación de cadena de confianza/revocación del certificado — no es deuda, es una decisión permanente del dueño del proyecto.

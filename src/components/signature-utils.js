@@ -317,7 +317,7 @@ export const getSignatureStatusDisplay = (signatureStatus) => {
             } else {
                 vigenciaText += `El certificado estaba vigente en ${refLabel} (${refDateText}). `;
             }
-            vigenciaText += 'Esta aplicación no verifica si el certificado estaba revocado en esa fecha — solo si estaba dentro de su período de vigencia.';
+            vigenciaText += 'Esta aplicación no soporta consultar si el certificado estaba revocado en esa fecha (no es una limitación temporal) — solo determina si estaba dentro de su período de vigencia.';
         } else {
             vigenciaText += 'No se pudo determinar si el certificado estaba vigente al momento de firmar (falta la fecha de referencia en el XML).';
         }
@@ -329,7 +329,7 @@ export const getSignatureStatusDisplay = (signatureStatus) => {
         lines.push('⚠ Se encontró más de una firma digital para este mismo elemento.');
     }
 
-    lines.push('', 'Nota: Esta aplicación verifica la integridad criptográfica de la firma (que el contenido no haya sido modificado después de firmarlo), pero no verifica la revocación ni la cadena de confianza del certificado. Si desea una validación más completa, por favor utilice otra aplicación, por ejemplo S-FiDE.');
+    lines.push('', 'Nota: Esta aplicación verifica la integridad criptográfica de la firma (que el contenido no haya sido modificado después de firmarlo), pero no soporta la validación de la cadena de confianza del certificado ni la consulta de su estado de revocación (OCSP/CRL) — no es una limitación temporal, esta aplicación no lo va a implementar. Si desea esa validación, por favor utilice otra aplicación, por ejemplo S-FiDE.');
 
     const hasWarning = signatureStatus.signatureAlgorithmWeak || signatureStatus.duplicateSignatures;
     const isTampered = signatureStatus.integrityValid === false;
