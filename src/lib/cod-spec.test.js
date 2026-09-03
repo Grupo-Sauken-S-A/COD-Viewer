@@ -65,6 +65,24 @@ describe('getFieldRequirement', () => {
       .toBe(getFieldRequirement(XML_SPECIFICATIONS, '4.1.1', 'A18', 'Affidavit'));
     expect(getFieldRequirement(XML_SPECIFICATIONS, '4.1.1', 'A57', 'Affidavit')).toBe('M');
   });
+
+  it('los campos *Fax (EHFax, ExporterFax, ImporterFax) ya no existen en 4.1.1: NC en todos los acuerdos', () => {
+    // Regresión: el XSD real de 4.1.1 no tiene ningún campo Fax (confirmado por el usuario);
+    // la tabla tenía A35/A72 en O por error, heredado de las versiones 1.8.x donde sí existen.
+    for (const field of ['EHFax', 'ExporterFax', 'ImporterFax']) {
+      for (const agreement of ['A18', 'A35', 'A72']) {
+        expect(getFieldRequirement(XML_SPECIFICATIONS, '4.1.1', agreement, field)).toBe('NC');
+      }
+    }
+  });
+
+  it('CertificateControlCode es Facultativo (no NC) en 4.1.1 para todos los acuerdos', () => {
+    // Regresión: ALADI_SEC_di2327_Rev13.pdf marca A18/4.1.1 como NC, pero el XSD real de 4.1.1
+    // sí lo acepta (confirmado por el usuario contra un COD real en producción).
+    for (const agreement of ['A18', 'A35', 'A72']) {
+      expect(getFieldRequirement(XML_SPECIFICATIONS, '4.1.1', agreement, 'CertificateControlCode')).toBe('O');
+    }
+  });
 });
 
 describe('getElementWithSpecPriority', () => {
