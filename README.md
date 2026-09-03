@@ -37,7 +37,14 @@ Otros scripts disponibles:
 ```bash
 npm run build   # build de producción
 npm run start   # sirve el build de producción
+npm test        # corre el suite de tests automatizados (Vitest)
 ```
+
+## Tests
+
+El suite (`npm test`) cubre `src/lib/cod-spec.js`, `src/lib/input-validation.js` y `src/components/signature-utils.js` con casos sintéticos, más un test de humo de `pdf-generator.js` y un test de pipeline de carga (`test/pipeline.test.js`) que replica lo que hace `CODViewer.processXML()`.
+
+Una parte de los tests usa COD reales de producción como fixtures (para probar contra la estructura real, y variantes recortadas/adulteradas que simulan etapas de emisión incompletas y errores de entrada). Esos XML **no están en el repositorio** por contener datos reales de exportadores y firmantes — van en `test/fixtures/real/` (gitignorado) y los tests que los necesitan se saltan solos si el directorio no existe, así que `npm test` funciona igual en un clon nuevo del repo, solo que con menos cobertura.
 
 ## Estructura del proyecto
 
@@ -58,6 +65,10 @@ src/
                                # (requerimiento de campo, prioridad Value/FOB, etc.)
     input-validation.js       # validaciones de codificación y estructura del XML de entrada
     app-version.js            # versión de la app (package.json), para mostrarla sin confundirla con CODVer
+test/
+  pipeline.test.js            # test de integración: replica CODViewer.processXML() de punta a punta
+  helpers/fixtures.js         # helpers para cargar COD reales y armar copias mutadas (etapas/errores)
+  fixtures/real/               # COD reales usados como fixtures (gitignorado, no se publica)
 ```
 
 ## Notas para quien retoque el código

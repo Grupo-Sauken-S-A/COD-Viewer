@@ -3,3 +3,8 @@ node_modules/
 npm-debug.log*
 .env
 .env.local
+
+# COD reales de producción usados como fixtures de test: contienen datos
+# reales de exportadores/firmantes, no deben publicarse en el repo público.
+# Los tests que los necesitan se saltan solos si el directorio no existe.
+test/fixtures/real/

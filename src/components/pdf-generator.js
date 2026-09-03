@@ -1349,16 +1349,23 @@ class PDFGenerator {
   }
 }
 
+// Arma el documento jsPDF sin descargarlo — separado de generateCODPDF para poder
+// probar la generación en tests sin disparar una descarga/escritura a disco real.
+export const buildCODPDFDocument = async (xmlData, options = {}) => {
+  const generator = new PDFGenerator(xmlData, options);
+  const doc = await generator.generatePDF(xmlData);
+
+  const certificateId = xmlData.querySelector('CertificateID')?.textContent || 'COD';
+  const timestamp = new Date().toISOString().slice(0, 10);
+  const filename = `COD_${certificateId}_${timestamp}.pdf`;
+
+  return { doc, filename };
+};
+
 // Función principal para generar y descargar PDF (actualizada)
 export const generateCODPDF = async (xmlData, options = {}) => {
   try {
-    const generator = new PDFGenerator(xmlData, options);
-    const doc = await generator.generatePDF(xmlData);
-
-    // Generar nombre del archivo
-    const certificateId = xmlData.querySelector('CertificateID')?.textContent || 'COD';
-    const timestamp = new Date().toISOString().slice(0, 10);
-    const filename = `COD_${certificateId}_${timestamp}.pdf`;
+    const { doc, filename } = await buildCODPDFDocument(xmlData, options);
 
     // Descargar el PDF
     doc.save(filename);

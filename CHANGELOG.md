@@ -5,6 +5,11 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [Unreleased]
+
+### Added
+- Suite de tests automatizados (Vitest + jsdom): `src/lib/cod-spec.js`, `src/lib/input-validation.js` y `src/components/signature-utils.js` con casos sintéticos y contra COD reales de producción; test de humo de `pdf-generator.js`; test de pipeline de carga (`test/pipeline.test.js`) que replica `CODViewer.processXML()`. Los COD reales usados como fixtures no se publican en el repo (van en `test/fixtures/real/`, gitignorado) por contener datos reales de exportadores y firmantes — los tests que los necesitan se saltan solos si el directorio no existe.
+
 ## [1.1.0] - 2026-09-03
 
 ### Added
