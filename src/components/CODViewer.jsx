@@ -19,6 +19,7 @@ import {
 } from '@/lib/cod-spec';
 import { validateEncoding, validateStructure } from '@/lib/input-validation';
 import { getEmissionStage, validateSubmitterType } from './signature-utils';
+import { APP_NAME, APP_VERSION } from '@/lib/app-version';
 
 const CODViewer = () => {
   const [xmlData, setXmlData] = useState(null);
@@ -279,6 +280,9 @@ const CODViewer = () => {
             <div className="mt-4 text-center text-xs text-gray-500">
               Desarrollado por <a href="https://sauken.com.ar/" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">Sauken</a> para{' '}
               <a href="https://certificadoorigen.com.ar/" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">Certificados de Origen</a>
+            </div>
+            <div className="mt-1 text-center text-[10px] text-gray-400">
+              {APP_NAME} v{APP_VERSION}
             </div>
           </div>
         </CardContent>
@@ -1028,6 +1032,10 @@ const CODViewer = () => {
             </Section>
 
           </Section>
+
+          <div className="text-center text-[10px] text-gray-400 pt-2">
+            {APP_NAME} v{APP_VERSION}
+          </div>
         </div>
       </CardContent>
     </Card>

@@ -7,9 +7,17 @@ Desarrollado por [Sauken](https://sauken.com.ar/) para [Certificados de Origen](
 ## Qué hace
 
 - Carga un XML de COD desde el disco, o automáticamente vía el parámetro `?xmlUri=<url>` en la URL (por ejemplo `http://localhost:3000/?xmlUri=https://ejemplo.com/certificado.xml`). En este segundo caso el XML se trae a través de `/api/proxy`, una ruta interna que evita problemas de CORS al pedirlo desde el navegador.
-- Muestra cada campo del certificado marcando si es **obligatorio**, **opcional** o **no corresponde**, según la combinación de versión del COD (`CODVer`) y acuerdo comercial (`AgreementAcronym`). Esas reglas están tabuladas en [`src/components/xml-specifications.js`](src/components/xml-specifications.js).
-- Verifica si existen firmas digitales (XMLDSig) sobre los elementos `COD` y `CODEH` del XML y muestra el algoritmo y el firmante. **No valida criptográficamente la firma** — solo informa si está presente.
-- Exporta el certificado visualizado a PDF (`jspdf` + `jspdf-autotable`).
+- Valida el archivo de entrada: codificación UTF-8, versión y acuerdo reconocidos, estructura básica del COD, `Content-Type` de la URL remota — avisa sin bloquear la vista.
+- Muestra cada campo del certificado marcando si es **obligatorio**, **opcional** o **no corresponde**, según la combinación de versión del COD (`CODVer`) y acuerdo comercial (`AgreementAcronym`). Esas reglas están tabuladas en [`src/components/xml-specifications.js`](src/components/xml-specifications.js), documentadas en detalle en [`docs/BUSINESS_RULES.md`](docs/BUSINESS_RULES.md).
+- Avisa si aparecen campos con datos que no corresponden al acuerdo/versión del certificado.
+- Verifica las firmas digitales (XMLDSig) de los elementos `COD` y `CODEH`: algoritmo, firmante, y si el certificado estaba vigente en el momento real de esa firma (no en el momento de mirarlo). **No valida criptográficamente la firma** ni su revocación — solo informa presencia y vigencia temporal.
+- Detecta en qué etapa del proceso de emisión está el COD (borrador, firmado por el Exportador, certificado por la Entidad Habilitada, completo) y lo avisa si no está terminado.
+- Exporta el certificado visualizado a PDF (`jspdf` + `jspdf-autotable`), A4, comprimido, con la versión de la app en el pie de página.
+
+## Más documentación
+
+- [`docs/DEVELOPER_GUIDE.md`](docs/DEVELOPER_GUIDE.md) — qué es un COD, cómo se construye y firma, cómo lo interpreta esta app. Punto de entrada conceptual para quien no conozca el dominio.
+- [`docs/BUSINESS_RULES.md`](docs/BUSINESS_RULES.md) — referencia exhaustiva de cada regla de negocio y validación, con su fuente y su porqué.
 
 ## Requisitos
 
@@ -39,15 +47,17 @@ src/
     api/proxy/route.js     # proxy server-side para cargar XML por URL (?xmlUri=)
     layout.js, page.js      # layout y entrada de Next.js (App Router)
   components/
-    CODViewer.jsx            # componente principal: carga, parsea y renderiza el certificado
+    CODViewer.jsx            # componente principal: carga, valida, parsea y renderiza el certificado
     pdf-generator.js         # generación del PDF equivalente a lo que se ve en pantalla
-    signature-components.js  # UI y lógica de presentación de campos y firmas
-    signature-utils.js       # verificación (no validación) de firmas XMLDSig
+    signature-components.js  # UI: campos y alertas (entrada, elementos inesperados, etapa de emisión)
+    signature-utils.js       # firmas digitales (verificación, no validación criptográfica) + etapa de emisión
     xml-specifications.js    # tabla de reglas M/O/NC por versión y acuerdo
     country-codes.js         # mapeo de códigos de país a nombre
   lib/
     cod-spec.js               # lógica de negocio compartida entre CODViewer y pdf-generator
                                # (requerimiento de campo, prioridad Value/FOB, etc.)
+    input-validation.js       # validaciones de codificación y estructura del XML de entrada
+    app-version.js            # versión de la app (package.json), para mostrarla sin confundirla con CODVer
 ```
 
 ## Notas para quien retoque el código

@@ -12,6 +12,7 @@ import {
   getOperatorContent as getOperatorContentSpec
 } from '@/lib/cod-spec';
 import { verifySignatureForElement, getSignatureStatusDisplay } from './signature-utils';
+import { APP_NAME, APP_VERSION } from '@/lib/app-version';
 
 // Configuración de colores y estilos
 const COLORS = {
@@ -103,7 +104,7 @@ const hexToRgb = (hex) => {
 
 class PDFGenerator {
   constructor(xmlData, options = {}) {
-    this.doc = new jsPDF('portrait', 'mm', 'a4');
+    this.doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
     this.pageWidth = 210;
     this.pageHeight = 297;
     this.margin = 10;
@@ -125,7 +126,8 @@ class PDFGenerator {
       subject: 'Certificado de Origen Digital',
       author: 'Grupo Sauken S.A. - ARGENTINA',
       creator: 'Visualizador COD',
-      producer: 'jsPDF'
+      producer: 'jsPDF',
+      keywords: `${APP_NAME} v${APP_VERSION}`
     });
   }
 
@@ -202,7 +204,7 @@ class PDFGenerator {
     
     this.doc.text(`Generado el ${currentDate} a las ${time}`, this.margin, footerY + 5);
     this.doc.text(`Página ${this.doc.internal.getCurrentPageInfo().pageNumber}`, this.pageWidth - this.margin, footerY + 5, { align: 'right' });
-    this.doc.text('Desarrollado por Sauken para Certificados de Origen', this.pageWidth / 2, footerY + 8, { align: 'center' });
+    this.doc.text(`Desarrollado por Sauken para Certificados de Origen · ${APP_NAME} v${APP_VERSION}`, this.pageWidth / 2, footerY + 8, { align: 'center' });
   }
 
   // Agregar sección con título mejorado
