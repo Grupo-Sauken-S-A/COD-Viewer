@@ -9,6 +9,7 @@ y este proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 ### Fixed
 - `<UnloadingPortName>` pasa de M (en casi todas las combinaciones) a O en las 12 combinaciones de versión/acuerdo: confirmado por el dueño del proyecto que nunca se usa en ningún COD real de los acuerdos/versiones que maneja esta app. Sigue sin código que lo lea o lo muestre (a propósito); el cambio evita que se marque como "dato inesperado" si alguna vez aparece con contenido.
+- `<EHFax>` pasa de NC a O en las 12 combinaciones de versión/acuerdo para 4.1.1 (corrige el fix de v1.2.0, que lo había dejado en NC). El sistema de gestión de certificados de Sauken tenía un bug (en proceso de corrección) que lo incluía en COD 4.1.1 aunque ALADI lo marca NC para esa versión — el XSD real lo acepta sin error, y ya existen muchos COD 4.1.1 emitidos con este dato que no van a dejar de existir. Mismo tratamiento que `CertificateControlCode`. `ExporterFax`/`ImporterFax` siguen NC en 4.1.1 — no les aplica este caso.
 
 ## [1.2.0] - 2026-09-03
 

@@ -66,21 +66,26 @@ describe('getFieldRequirement', () => {
     expect(getFieldRequirement(XML_SPECIFICATIONS, '4.1.1', 'A57', 'Affidavit')).toBe('M');
   });
 
-  it('los campos *Fax (EHFax, ExporterFax, ImporterFax) ya no existen en 4.1.1: NC en todos los acuerdos', () => {
-    // Regresión: el XSD real de 4.1.1 no tiene ningún campo Fax (confirmado por el usuario);
+  it('ExporterFax e ImporterFax ya no existen en 4.1.1: NC en todos los acuerdos', () => {
+    // Regresión: el XSD real de 4.1.1 no tiene estos dos campos Fax (confirmado por el usuario);
     // la tabla tenía A35/A72 en O por error, heredado de las versiones 1.8.x donde sí existen.
-    for (const field of ['EHFax', 'ExporterFax', 'ImporterFax']) {
+    // EHFax es un caso aparte (ver siguiente test) — no va en este grupo.
+    for (const field of ['ExporterFax', 'ImporterFax']) {
       for (const agreement of ['A18', 'A35', 'A72']) {
         expect(getFieldRequirement(XML_SPECIFICATIONS, '4.1.1', agreement, field)).toBe('NC');
       }
     }
   });
 
-  it('CertificateControlCode es Facultativo (no NC) en 4.1.1 para todos los acuerdos', () => {
-    // Regresión: ALADI_SEC_di2327_Rev13.pdf marca A18/4.1.1 como NC, pero el XSD real de 4.1.1
-    // sí lo acepta (confirmado por el usuario contra un COD real en producción).
-    for (const agreement of ['A18', 'A35', 'A72']) {
-      expect(getFieldRequirement(XML_SPECIFICATIONS, '4.1.1', agreement, 'CertificateControlCode')).toBe('O');
+  it('CertificateControlCode y EHFax son Facultativos (no NC) en 4.1.1 para todos los acuerdos', () => {
+    // Regresión: ALADI_SEC_di2327_Rev13.pdf marca ambos como NC en 4.1.1, pero el XSD real los
+    // acepta sin error — y el sistema emisor de Sauken los venía incluyendo por un bug propio
+    // (en proceso de corrección del lado de ellos), así que hay muchos COD 4.1.1 reales ya
+    // emitidos que los traen. No hay que marcarlos como "dato inesperado".
+    for (const field of ['CertificateControlCode', 'EHFax']) {
+      for (const agreement of ['A18', 'A35', 'A72']) {
+        expect(getFieldRequirement(XML_SPECIFICATIONS, '4.1.1', agreement, field)).toBe('O');
+      }
     }
   });
 

@@ -226,7 +226,7 @@ Implementadas en `src/lib/input-validation.js` (`validateEncoding`, `validateStr
 
 **Acotado a los elementos de la tabla, no a un escaneo libre de todo el XML** — evita falsos positivos de elementos estructurales (`<Goods>`, `<Signature>`, wrappers de firma) que no tienen semántica M/O/NC.
 
-**Casos reales encontrados durante el desarrollo** (con XML de producción reales): `CertificateControlCode` y `EHFax` aparecen con datos en certificados A18/4.1.1 aunque la tabla dice NC para esa combinación — la Entidad Habilitada parece incluir esos dos datos administrativos siempre, sin importar si el formulario específico los exige. No es necesariamente un error del certificado, pero sí una diferencia sistemática y sostenida contra la tabla.
+**`CertificateControlCode` y `EHFax` en 4.1.1 (resuelto, 2026-09-03):** ambos aparecían con datos en certificados A18/4.1.1 reales aunque la tabla decía NC. Causa confirmada por el dueño del proyecto: el sistema de gestión de certificados de Sauken tenía un bug (que están corrigiendo del lado de ellos) que incluía estos dos campos administrativos en COD 4.1.1 aunque la normativa ALADI los marca NC para esa versión — el XSD real los acepta igual, sin error de validación. Como ya existen muchos COD 4.1.1 emitidos con estos datos (y no van a dejar de existir aunque el bug se corrija a futuro), ambos se cargaron como `O` (Facultativo) en las 12 combinaciones de la tabla, para que nunca se marquen como "dato inesperado".
 
 ## 8. Firmas digitales
 
