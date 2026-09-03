@@ -5,6 +5,25 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.1.0] - 2026-09-02
+
+### Added
+- Detección de la etapa de emisión del COD (borrador, firmado por el Exportador, certificado por la Entidad Habilitada, completo) con alerta visible en pantalla y en el PDF, y marca de agua diagonal en el PDF cuando el documento no está completo.
+- Validaciones previas al procesamiento del XML: versión o acuerdo no reconocidos, estructura básica faltante (`<COD id="COD">`/`<CODEH id="CODEH">`), codificación distinta a UTF-8, caracteres de reemplazo (`�`), y validación del `Content-Type` de la respuesta remota en el proxy (`?xmlUri=`).
+- Estado de firmas digitales enriquecido: algoritmo de firma real además del de digest (marca RSA-SHA1 como débil/obsoleto), vigencia del certificado X.509 comparada contra la fecha real de cada firma (`DeclarationDate` para el Exportador, `CertificateDate` para la Entidad Habilitada — nunca contra la fecha de hoy), detección de firmas duplicadas para el mismo elemento, y cruce de `CODSubmitterType` contra "EXP".
+- Alerta en rojo cuando un certificado no estaba vigente al momento de la firma, distinta de las advertencias menores (algoritmo débil, firmas duplicadas).
+- Campo `<ThirdOpCity>` ("Ciudad") en la sección Tercer Operador — el único campo de esa familia sin equivalente `Op3c`, confirmado contra la documentación oficial de ALADI.
+- Alerta de "elementos con datos inesperados": detecta campos con contenido en el XML que, según la especificación, no corresponden al acuerdo/versión del certificado.
+- Etiquetas "Exportador (EXP)" / "Funcionario Habilitado (FH)" en el estado de firmas, reflejando los roles reales del mecanismo de emisión.
+
+### Fixed
+- `Op3cStatement` para A72 en versiones 1.8.x estaba marcado como no correspondiente (`NC`) cuando en la práctica es opcional — corregido contra un XML real.
+- Bug en el parser ASN.1 del certificado X.509 que hacía que la vigencia nunca se calculara correctamente (leía un campo equivocado de la estructura DER).
+- Las fechas de referencia de las firmas se interpretaban en hora local en vez de UTC, pudiendo desalinearlas contra las fechas del certificado.
+- El proxy aceptaba respuestas `text/html` como si fueran XML por un error en la validación de `Content-Type`.
+- Falta de `flex-1`/`min-w-0` en las alertas de firma hacía que el texto de la nota se cortara en un punto distinto según la longitud de la etiqueta de cada firma.
+- El texto "(Versión X - Acuerdo Y - Validado como Z)" ahora dice "Usa formulario FormZ", más preciso respecto a lo que realmente indica.
+
 ## [1.0.1] - 2026-09-02
 
 ### Changed
