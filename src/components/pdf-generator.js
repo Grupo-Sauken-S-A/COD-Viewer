@@ -665,6 +665,11 @@ class PDFGenerator {
       const displayInfo = getSignatureStatusDisplay(signatureStatus);
 
       const availableWidth = this.contentWidth - 10;
+      // El ancho de línea que calcula splitTextToSize depende de la fuente/tamaño activos
+      // en el momento de la llamada: hay que fijarlos ANTES de medir, no solo antes de dibujar,
+      // o la primera firma del bucle hereda el tamaño de la sección anterior y ajusta mal.
+      this.doc.setFont('helvetica', 'normal');
+      this.doc.setFontSize(FONTS.small.size);
       const textLines = this.doc.splitTextToSize(displayInfo.text, availableWidth);
       const neededHeight = Math.max(12, (textLines.length + 1) * 3 + 6);
 
@@ -697,9 +702,29 @@ class PDFGenerator {
 
       let currentLineY = this.currentY + 7;
       textLines.forEach(line => {
-        this.doc.text(line, this.margin + 7, currentLineY);
+        const boldIndex = line.indexOf('S-FiDE');
+        if (boldIndex === -1) {
+          this.doc.text(line, this.margin + 7, currentLineY);
+        } else {
+          const before = line.slice(0, boldIndex);
+          const after = line.slice(boldIndex + 'S-FiDE'.length);
+          let x = this.margin + 7;
+          this.doc.setFont('helvetica', 'normal');
+          if (before) {
+            this.doc.text(before, x, currentLineY);
+            x += this.doc.getTextWidth(before);
+          }
+          this.doc.setFont('helvetica', 'bold');
+          this.doc.text('S-FiDE', x, currentLineY);
+          x += this.doc.getTextWidth('S-FiDE');
+          this.doc.setFont('helvetica', 'normal');
+          if (after) {
+            this.doc.text(after, x, currentLineY);
+          }
+        }
         currentLineY += 3;
       });
+      this.doc.setFont('helvetica', 'normal');
 
       this.currentY += neededHeight + 2;
     }

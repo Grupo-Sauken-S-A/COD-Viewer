@@ -9,6 +9,15 @@ import { getCountryName } from './country-codes';
  * @param {string} str - String a verificar
  * @returns {boolean} true si es una URL válida
  */
+// Resalta en negrita el nombre de producto "S-FiDE" dentro de un texto plano, sin afectar el resto del formato
+const renderWithBoldSFiDE = (text) => {
+  const parts = text.split('S-FiDE');
+  if (parts.length === 1) return text;
+  return parts.flatMap((part, i) => (
+    i === 0 ? [part] : [<strong key={i}>S-FiDE</strong>, part]
+  ));
+};
+
 const isValidUrl = (str) => {
   try {
     const url = new URL(str);
@@ -147,7 +156,7 @@ export const SignatureStatus = ({ xmlDoc, elementId, elementName }) => {
               {elementName}
             </code>
             <div className={`text-sm whitespace-pre-line ${displayInfo.className}`}>
-              {displayInfo.text}
+              {renderWithBoldSFiDE(displayInfo.text)}
             </div>
           </div>
         </AlertDescription>

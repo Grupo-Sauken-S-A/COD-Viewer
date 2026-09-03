@@ -293,7 +293,7 @@ export const getSignatureStatusDisplay = (signatureStatus) => {
         lines.push('⚠ Se encontró más de una firma digital para este mismo elemento.');
     }
 
-    lines.push('', 'Nota: Esta aplicación no realiza validaciones criptográficas sobre la firma digital (no verifica que el hash coincida, la revocación ni la cadena de confianza del certificado). Si desea validar la firma, por favor utilice otra aplicación.');
+    lines.push('', 'Nota: Esta aplicación no realiza validaciones criptográficas sobre la firma digital (no verifica que el hash coincida, la revocación ni la cadena de confianza del certificado). Si desea validar la firma, por favor utilice otra aplicación, por ejemplo S-FiDE.');
 
     const hasWarning = signatureStatus.signatureAlgorithmWeak || signatureStatus.duplicateSignatures;
 
