@@ -11,6 +11,7 @@ import {
   getValueFieldWithSpecPriority as getValueFieldWithSpecPrioritySpec,
   getOperatorContent as getOperatorContentSpec
 } from '@/lib/cod-spec';
+import { verifySignatureForElement, getSignatureStatusDisplay } from './signature-utils';
 
 // Configuración de colores y estilos
 const COLORS = {
@@ -101,7 +102,7 @@ const hexToRgb = (hex) => {
 };
 
 class PDFGenerator {
-  constructor(xmlData) {
+  constructor(xmlData, options = {}) {
     this.doc = new jsPDF('portrait', 'mm', 'a4');
     this.pageWidth = 210;
     this.pageHeight = 297;
@@ -109,12 +110,14 @@ class PDFGenerator {
     this.contentWidth = this.pageWidth - (this.margin * 2);
     this.currentY = this.margin;
     this.lineHeight = 4;
-    
+
     // Inicializar especificaciones y estado
     this.xmlSpecifications = XML_SPECIFICATIONS;
     this.currentVersion = xmlData.querySelector('CODVer')?.textContent?.trim();
     this.originalAgreement = xmlData.querySelector('AgreementAcronym')?.textContent?.trim();
     this.currentAgreement = this.originalAgreement;
+    this.inputWarnings = options.inputWarnings || [];
+    this.emissionStage = options.emissionStage || null;
 
     // Configurar propiedades del documento
     this.doc.setProperties({
@@ -171,7 +174,7 @@ class PDFGenerator {
       this.doc.setFont('helvetica', 'normal');
       let versionText = `Versión ${this.currentVersion} - Acuerdo ${this.originalAgreement}`;
       if (AGREEMENT_MAPPING[this.originalAgreement] && AGREEMENT_MAPPING[this.originalAgreement] !== this.originalAgreement) {
-        versionText += ` - Validado como ${AGREEMENT_MAPPING[this.originalAgreement]}`;
+        versionText += ` - Usa formulario Form${AGREEMENT_MAPPING[this.originalAgreement]}`;
       }
       this.doc.text(versionText, this.pageWidth / 2, this.margin + 13, { align: 'center' });
     }
@@ -646,97 +649,163 @@ class PDFGenerator {
     this.addField(label, result.value, result.foundElement, 20);
   }
 
-  // Agregar estado de firmas mejorado
-  addSignatureStatus(xmlDoc) {
+  // Agregar estado de firmas mejorado — reutiliza la misma lógica que la vista web
+  async addSignatureStatus(xmlDoc) {
     this.addSection('Estado de Firmas Digitales', 0);
-    
+
     const signatures = [
-      { element: 'COD', name: 'Certificado de Origen Digital (COD)' },
-      { element: 'CODEH', name: 'Certificado de Origen Digital con Entidad Habilitada (CODEH)' }
+      { element: 'COD', name: 'Exportador (EXP)' },
+      { element: 'CODEH', name: 'Funcionario Habilitado (FH)' }
     ];
-    
-    signatures.forEach(sig => {
-      let targetSignature = null;
-      const xmlSigNS = "http://www.w3.org/2000/09/xmldsig#";
-      const allSignatures = xmlDoc.getElementsByTagNameNS(xmlSigNS, "Signature");
-      
-      for (const signature of Array.from(allSignatures)) {
-        const reference = signature.getElementsByTagNameNS(xmlSigNS, "Reference")[0];
-        if (reference?.getAttribute("URI") === `#${sig.element}`) {
-          targetSignature = signature;
-          break;
-        }
-      }
-      
-      const hasSignature = targetSignature !== null;
-      let statusText = hasSignature ? 'Firma digital presente' : 'Firma digital no encontrada';
-      let detailText = '';
-      
-      if (hasSignature) {
-        const digestMethod = targetSignature.getElementsByTagNameNS(xmlSigNS, "DigestMethod")[0]?.getAttribute("Algorithm");
-        const algorithm = digestMethod?.includes('sha256') ? 'SHA-256' : 
-                         digestMethod?.includes('sha1') ? 'SHA-1' : 'No especificado';
-        
-        const x509SubjectName = targetSignature.getElementsByTagNameNS(xmlSigNS, "X509SubjectName")[0];
-        let signerName = 'Firmante no especificado';
-        if (x509SubjectName?.textContent) {
-          const match = x509SubjectName.textContent.match(/CN=([^,]+)/);
-          signerName = match ? `Firmado por: ${match[1].trim()}` : 'Firmante no especificado';
-        }
-        
-        detailText = `${signerName}\nAlgoritmo: ${algorithm}\n\nNota: Esta aplicación no realiza validaciones sobre la firma digital. Si desea validar la firma, por favor utilice otra aplicación.`;
-      }
-      
+
+    for (const sig of signatures) {
+      const signatureStatus = await verifySignatureForElement(xmlDoc, sig.element);
+      const displayInfo = getSignatureStatusDisplay(signatureStatus);
+
       const availableWidth = this.contentWidth - 10;
-      const statusLines = this.doc.splitTextToSize(statusText, availableWidth);
-      const detailLines = detailText ? this.doc.splitTextToSize(detailText, availableWidth) : [];
-      const totalLines = statusLines.length + detailLines.length;
-      const neededHeight = Math.max(12, totalLines * 3 + 6);
-      
+      const textLines = this.doc.splitTextToSize(displayInfo.text, availableWidth);
+      const neededHeight = Math.max(12, (textLines.length + 1) * 3 + 6);
+
       this.checkPageBreak(neededHeight + 2);
-      
-      if (hasSignature) {
-        this.doc.setFillColor(219, 234, 254);
-      } else {
-        this.doc.setFillColor(254, 243, 199);
-      }
+
+      const fillBySeverity = { ok: [219, 234, 254], warning: [254, 243, 199], error: [254, 226, 226] };
+      const [r, g, b] = fillBySeverity[displayInfo.severity] || fillBySeverity.ok;
+      this.doc.setFillColor(r, g, b);
       this.doc.rect(this.margin + 5, this.currentY, this.contentWidth - 5, neededHeight, 'F');
-      
-      if (hasSignature) {
-        const accentRgb = hexToRgb(COLORS.accent);
-        this.doc.setTextColor(accentRgb.r, accentRgb.g, accentRgb.b);
-      } else {
+
+      if (displayInfo.severity === 'error') {
+        const errorRgb = hexToRgb(COLORS.error);
+        this.doc.setTextColor(errorRgb.r, errorRgb.g, errorRgb.b);
+      } else if (displayInfo.severity === 'warning') {
         const warningRgb = hexToRgb(COLORS.warning);
         this.doc.setTextColor(warningRgb.r, warningRgb.g, warningRgb.b);
+      } else {
+        const accentRgb = hexToRgb(COLORS.accent);
+        this.doc.setTextColor(accentRgb.r, accentRgb.g, accentRgb.b);
       }
-      
+
       this.doc.setFontSize(FONTS.signatureText.size);
       this.doc.setFont('helvetica', 'bold');
       this.doc.text(sig.name, this.margin + 7, this.currentY + 4);
-      
+
       const primaryRgb = hexToRgb(COLORS.primary);
       this.doc.setTextColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
       this.doc.setFont('helvetica', 'normal');
       this.doc.setFontSize(FONTS.small.size);
-      
+
       let currentLineY = this.currentY + 7;
-      statusLines.forEach(line => {
+      textLines.forEach(line => {
         this.doc.text(line, this.margin + 7, currentLineY);
         currentLineY += 3;
       });
-      
-      if (detailLines.length > 0) {
-        detailLines.forEach(line => {
-          this.doc.text(line, this.margin + 7, currentLineY);
-          currentLineY += 3;
-        });
-      }
-      
+
       this.currentY += neededHeight + 2;
-    });
+    }
   }
 
   // Elementos que no corresponden a este acuerdo/versión pero traen datos en el XML
+  // Advertencias sobre el archivo XML (codificación, versión/acuerdo no reconocidos, estructura faltante)
+  addInputValidationAlert() {
+    if (!this.inputWarnings || this.inputWarnings.length === 0) {
+      return;
+    }
+
+    this.addSection('Advertencias sobre el Archivo XML', 0);
+
+    const availableWidth = this.contentWidth - 10;
+    const itemLines = this.inputWarnings.flatMap((warning) => this.doc.splitTextToSize(`• ${warning}`, availableWidth));
+
+    const neededHeight = Math.max(12, itemLines.length * 3 + 6);
+    this.checkPageBreak(neededHeight + 2);
+
+    this.doc.setFillColor(254, 243, 199);
+    this.doc.rect(this.margin + 5, this.currentY, this.contentWidth - 5, neededHeight, 'F');
+
+    const warningRgb = hexToRgb(COLORS.warning);
+    this.doc.setTextColor(warningRgb.r, warningRgb.g, warningRgb.b);
+    this.doc.setFontSize(FONTS.signatureText.size);
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.text('Advertencias sobre el archivo XML', this.margin + 7, this.currentY + 4);
+
+    const primaryRgb = hexToRgb(COLORS.primary);
+    this.doc.setTextColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
+    this.doc.setFont('helvetica', 'normal');
+    this.doc.setFontSize(FONTS.small.size);
+
+    let currentLineY = this.currentY + 7;
+    itemLines.forEach(line => {
+      this.doc.text(line, this.margin + 7, currentLineY);
+      currentLineY += 3;
+    });
+
+    this.currentY += neededHeight + 2;
+  }
+
+  // Etapa de emisión del COD: alerta si no está completo (etapa 4) o si el orden de firmas es anómalo
+  addEmissionStageAlert() {
+    if (!this.emissionStage || this.emissionStage.stage === 4) {
+      return;
+    }
+
+    const isAnomaly = this.emissionStage.stage === 'anomalo';
+    this.addSection('Estado del COD', 0);
+
+    const availableWidth = this.contentWidth - 10;
+    const titleText = isAnomaly ? 'Orden de firmas inconsistente' : 'Este XML es un COD en proceso — no está completo';
+    const bodyText = isAnomaly
+      ? this.emissionStage.label
+      : `Etapa detectada: ${this.emissionStage.label}. Este documento no constituye un Certificado de Origen Digital válido hasta que complete todas las etapas de su emisión.`;
+    const bodyLines = this.doc.splitTextToSize(bodyText, availableWidth);
+
+    const neededHeight = Math.max(14, (bodyLines.length + 1) * 3 + 8);
+    this.checkPageBreak(neededHeight + 2);
+
+    this.doc.setFillColor(254, 226, 226); // red-100
+    this.doc.rect(this.margin + 5, this.currentY, this.contentWidth - 5, neededHeight, 'F');
+
+    const errorRgb = hexToRgb(COLORS.error);
+    this.doc.setTextColor(errorRgb.r, errorRgb.g, errorRgb.b);
+    this.doc.setFontSize(FONTS.signatureText.size);
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.text(titleText, this.margin + 7, this.currentY + 4);
+
+    this.doc.setFont('helvetica', 'normal');
+    this.doc.setFontSize(FONTS.small.size);
+    let currentLineY = this.currentY + 8;
+    bodyLines.forEach(line => {
+      this.doc.text(line, this.margin + 7, currentLineY);
+      currentLineY += 3;
+    });
+
+    this.currentY += neededHeight + 2;
+  }
+
+  // Watermark diagonal en todas las páginas cuando el COD no está completo
+  addIncompleteWatermark() {
+    if (!this.emissionStage || this.emissionStage.stage === 4) {
+      return;
+    }
+
+    const pageCount = this.doc.internal.getNumberOfPages();
+    const errorRgb = hexToRgb(COLORS.error);
+
+    for (let i = 1; i <= pageCount; i++) {
+      this.doc.setPage(i);
+      this.doc.saveGraphicsState();
+      this.doc.setTextColor(errorRgb.r, errorRgb.g, errorRgb.b);
+      this.doc.setFontSize(40);
+      this.doc.setFont('helvetica', 'bold');
+      if (this.doc.setGState && this.doc.GState) {
+        this.doc.setGState(new this.doc.GState({ opacity: 0.18 }));
+      }
+      this.doc.text('EN PROCESO — NO VÁLIDO', this.pageWidth / 2, this.pageHeight / 2, {
+        angle: 45,
+        align: 'center'
+      });
+      this.doc.restoreGraphicsState();
+    }
+  }
+
   addUnexpectedElementsAlert(xmlData) {
     const unexpected = getUnexpectedElements(this.xmlSpecifications, this.currentVersion, this.currentAgreement, xmlData);
     if (unexpected.length === 0) {
@@ -791,11 +860,15 @@ class PDFGenerator {
       // Configuración inicial
       this.addHeader();
 
+      // Advertencias sobre el archivo y estado del proceso de emisión
+      this.addInputValidationAlert();
+      this.addEmissionStageAlert();
+
       // Elementos con datos que no corresponden al acuerdo/versión
       this.addUnexpectedElementsAlert(xmlData);
 
       // Estado de firmas
-      this.addSignatureStatus(xmlData);
+      await this.addSignatureStatus(xmlData);
       
       // Estructura del certificado
       this.addSection('Estructura del Certificado de Origen', 0);
@@ -1237,7 +1310,10 @@ class PDFGenerator {
         this.doc.setPage(i);
         this.addFooter();
       }
-      
+
+      // Marca de agua si el COD no está completo
+      this.addIncompleteWatermark();
+
       return this.doc;
     } catch (error) {
       console.error('Error generando PDF:', error);
@@ -1247,9 +1323,9 @@ class PDFGenerator {
 }
 
 // Función principal para generar y descargar PDF (actualizada)
-export const generateCODPDF = async (xmlData) => {
+export const generateCODPDF = async (xmlData, options = {}) => {
   try {
-    const generator = new PDFGenerator(xmlData);
+    const generator = new PDFGenerator(xmlData, options);
     const doc = await generator.generatePDF(xmlData);
 
     // Generar nombre del archivo

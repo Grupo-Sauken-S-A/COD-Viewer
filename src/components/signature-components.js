@@ -124,18 +124,24 @@ export const SignatureStatus = ({ xmlDoc, elementId, elementName }) => {
   }
 
   const displayInfo = getSignatureStatusDisplay(signatureStatus);
+  const boxClassBySeverity = {
+    ok: 'bg-blue-50 border-blue-200',
+    warning: 'bg-amber-50 border-amber-200',
+    error: 'bg-red-50 border-red-200'
+  };
+  const iconColorBySeverity = { warning: 'text-amber-500', error: 'text-red-500' };
 
   return (
-    <Alert 
-      className={`mt-2 ${!signatureStatus.hasSignature ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'}`}
+    <Alert
+      className={`mt-2 ${boxClassBySeverity[displayInfo.severity]}`}
     >
       <div className="flex items-start gap-2">
-        {!signatureStatus.hasSignature ? (
-          <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5" />
+        {displayInfo.severity !== 'ok' ? (
+          <AlertTriangle className={`h-5 w-5 ${iconColorBySeverity[displayInfo.severity]} mt-0.5 flex-shrink-0`} />
         ) : (
-          <Info className="h-5 w-5 text-blue-500 mt-0.5" />
+          <Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
         )}
-        <AlertDescription>
+        <AlertDescription className="flex-1 min-w-0">
           <div className="space-y-1">
             <code className="inline-block px-2 py-1 text-xs font-mono bg-white rounded">
               {elementName}
@@ -143,6 +149,63 @@ export const SignatureStatus = ({ xmlDoc, elementId, elementName }) => {
             <div className={`text-sm whitespace-pre-line ${displayInfo.className}`}>
               {displayInfo.text}
             </div>
+          </div>
+        </AlertDescription>
+      </div>
+    </Alert>
+  );
+};
+
+export const InputValidationAlert = ({ warnings }) => {
+  if (!warnings || warnings.length === 0) {
+    return null;
+  }
+
+  return (
+    <Alert className="bg-amber-50 border-amber-200">
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
+        <AlertDescription className="flex-1 min-w-0">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-amber-800">
+              Advertencias sobre el archivo XML
+            </p>
+            <ul className="text-sm text-amber-700 list-disc list-inside space-y-0.5">
+              {warnings.map((warning, index) => (
+                <li key={index}>{warning}</li>
+              ))}
+            </ul>
+          </div>
+        </AlertDescription>
+      </div>
+    </Alert>
+  );
+};
+
+export const EmissionStageAlert = ({ emissionStage }) => {
+  if (!emissionStage || emissionStage.stage === 4) {
+    return null;
+  }
+
+  const isAnomaly = emissionStage.stage === 'anomalo';
+
+  return (
+    <Alert className="bg-red-50 border-red-200">
+      <div className="flex items-start gap-2">
+        <XCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+        <AlertDescription className="flex-1 min-w-0">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-red-800">
+              {isAnomaly ? 'Orden de firmas inconsistente' : 'Este XML es un COD en proceso — no está completo'}
+            </p>
+            <p className="text-sm text-red-700">
+              {isAnomaly ? emissionStage.label : `Etapa detectada: ${emissionStage.label}.`}
+            </p>
+            {!isAnomaly && (
+              <p className="text-sm text-red-700">
+                Este documento no constituye un Certificado de Origen Digital válido hasta que complete todas las etapas de su emisión.
+              </p>
+            )}
           </div>
         </AlertDescription>
       </div>
@@ -159,7 +222,7 @@ export const UnexpectedElementsAlert = ({ elements, agreement, version }) => {
     <Alert className="bg-amber-50 border-amber-200">
       <div className="flex items-start gap-2">
         <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
-        <AlertDescription>
+        <AlertDescription className="flex-1 min-w-0">
           <div className="space-y-2">
             <p className="text-sm font-medium text-amber-800">
               Elementos con datos que no corresponden a este acuerdo/versión
@@ -196,13 +259,13 @@ export const DocumentSignatures = ({ xmlDoc }) => {
       <SignatureStatus
         xmlDoc={xmlDoc}
         elementId="COD"
-        elementName="Certificado de Origen Digital (COD)"
+        elementName="Exportador (EXP)"
       />
 
       <SignatureStatus
         xmlDoc={xmlDoc}
         elementId="CODEH"
-        elementName="Certificado de Origen Digital con Entidad Habilitada (CODEH)"
+        elementName="Funcionario Habilitado (FH)"
       />
     </div>
   );

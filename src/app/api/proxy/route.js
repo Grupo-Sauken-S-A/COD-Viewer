@@ -15,6 +15,24 @@ export async function GET(request) {
         // Sin allowlist de host/esquema a propósito: los certificados XML pueden
         // estar alojados en cualquier red, interna o externa, según el emisor.
         const response = await fetch(url);
+
+        if (!response.ok) {
+            return NextResponse.json(
+                { error: `El servidor remoto respondió con estado ${response.status}` },
+                { status: 502 }
+            );
+        }
+
+        // No exigimos que declare "xml" (algunos servidores lo sirven como text/plain u
+        // octet-stream), pero descartamos los tipos que claramente no son XML.
+        const contentType = response.headers.get('content-type') || '';
+        if (/html|json|image\/|video\/|audio\/|pdf/i.test(contentType)) {
+            return NextResponse.json(
+                { error: `El recurso remoto no parece ser un XML (Content-Type: ${contentType})` },
+                { status: 502 }
+            );
+        }
+
         const xmlContent = await response.text();
 
         return new NextResponse(xmlContent, {

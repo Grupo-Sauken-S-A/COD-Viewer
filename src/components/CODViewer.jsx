@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, XCircle, FileText, Download } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Field, Section, DocumentSignatures, UnexpectedElementsAlert } from './signature-components';
+import { Field, Section, DocumentSignatures, UnexpectedElementsAlert, InputValidationAlert, EmissionStageAlert } from './signature-components';
 import { generateCODPDF } from './pdf-generator';
 import { XML_SPECIFICATIONS } from './xml-specifications.js';
 import {
@@ -17,6 +17,8 @@ import {
   getUnexpectedElements,
   isRequiredFieldEmpty
 } from '@/lib/cod-spec';
+import { validateEncoding, validateStructure } from '@/lib/input-validation';
+import { getEmissionStage, validateSubmitterType } from './signature-utils';
 
 const CODViewer = () => {
   const [xmlData, setXmlData] = useState(null);
@@ -27,6 +29,8 @@ const CODViewer = () => {
   const [currentVersion, setCurrentVersion] = useState(null);
   const [currentAgreement, setCurrentAgreement] = useState(null);
   const [originalAgreement, setOriginalAgreement] = useState(null);
+  const [inputWarnings, setInputWarnings] = useState([]);
+  const [emissionStage, setEmissionStage] = useState(null);
 
   const getFieldRequirement = (elementName) => {
     return getFieldRequirementSpec(xmlSpecifications, currentVersion, currentAgreement, elementName);
@@ -143,6 +147,15 @@ const CODViewer = () => {
         setCurrentAgreement(agreement);
       }
 
+      const submitterTypeWarning = validateSubmitterType(xmlDoc);
+      const warnings = [
+        ...validateEncoding(xmlContent),
+        ...validateStructure(xmlDoc, XML_SPECIFICATIONS),
+        ...(submitterTypeWarning ? [submitterTypeWarning] : [])
+      ];
+      setInputWarnings(warnings);
+      setEmissionStage(getEmissionStage(xmlDoc));
+
       setXmlData(xmlDoc);
       setError(null);
     } catch (err) {
@@ -174,7 +187,7 @@ const CODViewer = () => {
     
     try {
       setPdfGenerating(true);
-      const result = await generateCODPDF(xmlData);
+      const result = await generateCODPDF(xmlData, { inputWarnings, emissionStage });
       
       if (!result.success) {
         setError(`Error al generar PDF: ${result.error}`);
@@ -200,11 +213,12 @@ const CODViewer = () => {
                 setLoading(true);
                 const proxyUrl = `/api/proxy?url=${encodeURIComponent(xmlUri)}`;
                 const response = await fetch(proxyUrl);
-                
+
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    const body = await response.json().catch(() => null);
+                    throw new Error(body?.error || `HTTP error! status: ${response.status}`);
                 }
-                
+
                 const xmlContent = await response.text();
                 processXML(xmlContent);
             }
@@ -284,8 +298,8 @@ const CODViewer = () => {
           {currentVersion && originalAgreement && (
             <span className="text-sm font-normal text-gray-600 ml-2">
               (Versión {currentVersion} - Acuerdo {originalAgreement}
-              {AGREEMENT_MAPPING[originalAgreement] && AGREEMENT_MAPPING[originalAgreement] !== originalAgreement && 
-                ` - Validado como ${AGREEMENT_MAPPING[originalAgreement]}`
+              {AGREEMENT_MAPPING[originalAgreement] && AGREEMENT_MAPPING[originalAgreement] !== originalAgreement &&
+                ` - Usa formulario Form${AGREEMENT_MAPPING[originalAgreement]}`
               })
             </span>
           )}
@@ -322,6 +336,10 @@ const CODViewer = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
+          <InputValidationAlert warnings={inputWarnings} />
+
+          <EmissionStageAlert emissionStage={emissionStage} />
+
           <UnexpectedElementsAlert
             elements={unexpectedElements}
             agreement={originalAgreement}
