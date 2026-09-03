@@ -230,7 +230,7 @@ Implementadas en `src/lib/input-validation.js` (`validateEncoding`, `validateStr
 
 ## 8. Firmas digitales
 
-Implementado en `src/components/signature-utils.js` (`verifySignatureForElement`, `getSignatureStatusDisplay`), reutilizado igual por la vista web (`SignatureStatus`) y el PDF (`addSignatureStatus`) — sin lógica duplicada entre los dos.
+Implementado en `src/components/signature-utils.js` (`verifySignatureForElement`, `getSignatureStatusDisplay`, `checkSignatureIntegrity`) + `src/app/api/verify-signature-integrity/route.js`, reutilizado igual por la vista web (`SignatureStatus`) y el PDF (`addSignatureStatus`) — sin lógica duplicada entre los dos.
 
 ### Qué verifica (y qué NO verifica)
 
@@ -240,11 +240,28 @@ Implementado en `src/components/signature-utils.js` (`verifySignatureForElement`
 - **Vigencia del certificado X.509** (`NotBefore`/`NotAfter`), extraída con un parser ASN.1/DER mínimo escrito a mano (sin librería nueva) — ver `getCertificateValidity()`.
 - **Firmas duplicadas**: más de un `<ds:Signature>` con la misma `Reference URI`.
 - Que `CODSubmitterType` sea `"EXP"` (sección 6).
+- **Integridad criptográfica de la firma** (desde v1.1.0): que el contenido firmado no haya sido modificado después de firmarlo. Recalcula el digest del contenido referenciado (aplicando la canonicalización XML — C14N/exclusive-C14N — y el transform `enveloped-signature` que declara la propia firma) y lo compara contra `<DigestValue>`, y verifica `<SignatureValue>` contra `<SignedInfo>` usando la clave pública del certificado embebido en la propia firma (`<X509Certificate>`). Ver subsección siguiente para el detalle técnico.
 
 **No verifica (y lo dice explícitamente en el texto que muestra):**
-- Que el hash del digest coincida con el contenido real (no recalcula el digest).
 - La cadena de confianza del certificado (no valida contra una Autoridad Certificante raíz).
 - **Si el certificado estaba revocado** en el momento de la firma — la app no consulta ninguna CRL/OCSP. Solo determina si la fecha de la firma caía dentro del período de vigencia (`NotBefore`–`NotAfter`) del certificado, que es una cosa distinta de "no revocado".
+
+### Integridad de la firma (verificación criptográfica real)
+
+**Por qué se agregó**: hasta v1.1.0 (versión original), la app solo comprobaba que existiera un `<ds:Signature>` y mostraba metadatos (algoritmo, vigencia del certificado) — pero nunca recalculaba el digest ni verificaba `SignatureValue`. Esto significaba que si alguien editaba un campo dentro de `<COD>`/`<CODEH>` **después** de que se firmara, la app seguía mostrando "Firma digital presente" con el certificado vigente, sin detectar la alteración — una app que aparentaba validar algo que en realidad nunca validó. Juan Carlos lo señaló como un tema de seguridad importante y pidió cerrarlo.
+
+**Por qué corre server-side y no en el navegador**: la verificación real de XMLDSig requiere **canonicalización XML** (C14N inclusivo y exclusivo, con y sin comentarios — ver algoritmos exactos abajo), que no tiene equivalente nativo en el navegador (Web Crypto solo cubre el paso de verificar la firma sobre un buffer ya canonicalizado, no la canonicalización en sí). Implementar C14N a mano había fallado repetidamente en intentos previos (fuera de este proyecto). La solución fue usar `xml-crypto` (que sí implementa C14N correctamente, apoyado en Node `crypto`) desde una API route nueva: `POST /api/verify-signature-integrity`, que recibe el XML crudo (`xmlContent`) y devuelve `{ COD: {integrityValid}, CODEH: {integrityValid} }`. Se llama **una sola vez por documento cargado** (no por cada firma) desde `CODViewer.jsx` justo después de parsear el XML, y el resultado se reutiliza tanto en la vista web como al generar el PDF (pasado como opción `signatureIntegrity`).
+
+**Algoritmos reales observados en COD de producción** (confirmado contra 6 XML reales + un XML de `viewcod.certificadoorigen.com.ar`):
+- `CanonicalizationMethod` de `SignedInfo`: `http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments` (C14N inclusivo, con comentarios).
+- `Transform` de cada `Reference`: `enveloped-signature` (saca la propia firma del contenido a hashear) + `http://www.w3.org/2001/10/xml-exc-c14n#` (C14N exclusivo, sin comentarios) sobre el elemento referenciado (`#COD`/`#CODEH`).
+- `SignatureMethod`/`DigestMethod`: `rsa-sha1`/`sha1` (EXP, certificados más viejos) o `rsa-sha256`/`sha256` (FH, certificados más nuevos) — ambos ya soportados de fábrica por `xml-crypto`, sin necesidad de registrar algoritmos custom.
+
+**Selección de la firma a verificar**: igual que `verifySignatureForElement`, si hay más de un `<ds:Signature>` con la misma `Reference URI`, se verifica la **primera** — consistente con qué firma se muestra en pantalla.
+
+**Valores posibles de `integrityValid`**: `true` (verificado, coincide), `false` (el documento fue modificado después de firmarlo — máxima severidad, rojo), `null`/ausente (no se pudo determinar — error de red, algoritmo no soportado, etc.; nunca se asume válido por defecto). Si no hay firma para ese elemento, el endpoint devuelve `null` para esa clave (no es un error, `verifySignatureForElement` ya lo reporta por separado).
+
+**Nota sobre el mecanismo de firmas** (ver sección 1): como `#CODEH` cubre todo el documento (incluida la firma de `#COD`), editar un campo dentro de `<COD>` invalida **ambas** referencias. Editar un dato que solo está en `<EH>`/`<CertificationEH>` (fuera de `<COD>`) invalida solo `#CODEH`, dejando `#COD` íntegra — confirmado con tests automatizados (`route.test.js`).
 
 ### Vigencia comparada contra la fecha real de la firma, NUNCA contra "hoy"
 
@@ -267,7 +284,7 @@ Cada una de las dos firmas de un COD corresponde a un momento real distinto:
 |---|---|
 | Azul | Firma presente, sin ninguna advertencia. |
 | Ámbar | Algoritmo de firma débil (SHA-1/MD5), o firmas duplicadas para el mismo elemento. |
-| **Rojo** | El certificado **no estaba vigente** en la fecha de esa firma (vencido o todavía no válido en ese momento). Es una categoría más grave que las ámbar — se pidió expresamente distinguirla. |
+| **Rojo** | El certificado **no estaba vigente** en la fecha de esa firma (vencido o todavía no válido en ese momento), **o** la verificación de integridad (`integrityValid === false`) detectó que el documento fue modificado después de firmarlo — esto último es la condición más grave que puede reportar la app: el documento debe considerarse inválido. Ambas son categorías más graves que las ámbar. |
 
 Falta de firma (`hasSignature: false`) se muestra en ámbar — es el estado normal de un COD en proceso (ver sección 9), no una anomalía en sí misma.
 

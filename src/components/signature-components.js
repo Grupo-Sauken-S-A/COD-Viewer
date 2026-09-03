@@ -107,7 +107,7 @@ export const Field = ({ label, value, required, optional = false, hasError = fal
   </div>
 );
 
-export const SignatureStatus = ({ xmlDoc, elementId, elementName }) => {
+export const SignatureStatus = ({ xmlDoc, elementId, elementName, integrityResult }) => {
   const [signatureStatus, setSignatureStatus] = useState(null);
 
   useEffect(() => {
@@ -132,7 +132,13 @@ export const SignatureStatus = ({ xmlDoc, elementId, elementName }) => {
     return null;
   }
 
-  const displayInfo = getSignatureStatusDisplay(signatureStatus);
+  // integrityResult llega por separado (se pide una sola vez para todo el documento, no por
+  // cada firma — ver checkSignatureIntegrity en signature-utils.js) y se mezcla acá.
+  const mergedStatus = {
+    ...signatureStatus,
+    integrityValid: integrityResult?.integrityValid ?? null
+  };
+  const displayInfo = getSignatureStatusDisplay(mergedStatus);
   const boxClassBySeverity = {
     ok: 'bg-blue-50 border-blue-200',
     warning: 'bg-amber-50 border-amber-200',
@@ -258,23 +264,25 @@ export const UnexpectedElementsAlert = ({ elements, agreement, version }) => {
   );
 };
 
-export const DocumentSignatures = ({ xmlDoc }) => {
+export const DocumentSignatures = ({ xmlDoc, integrityResults = {} }) => {
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-gray-900">
         Estado de Firmas Digitales
       </h3>
-      
+
       <SignatureStatus
         xmlDoc={xmlDoc}
         elementId="COD"
         elementName="Exportador (EXP)"
+        integrityResult={integrityResults?.COD}
       />
 
       <SignatureStatus
         xmlDoc={xmlDoc}
         elementId="CODEH"
         elementName="Funcionario Habilitado (FH)"
+        integrityResult={integrityResults?.CODEH}
       />
     </div>
   );

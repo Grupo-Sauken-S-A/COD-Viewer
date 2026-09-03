@@ -18,7 +18,7 @@ import {
   isRequiredFieldEmpty
 } from '@/lib/cod-spec';
 import { validateEncoding, validateStructure } from '@/lib/input-validation';
-import { getEmissionStage, validateSubmitterType } from './signature-utils';
+import { getEmissionStage, validateSubmitterType, checkSignatureIntegrity } from './signature-utils';
 import { APP_NAME, APP_VERSION } from '@/lib/app-version';
 
 const CODViewer = () => {
@@ -32,6 +32,7 @@ const CODViewer = () => {
   const [originalAgreement, setOriginalAgreement] = useState(null);
   const [inputWarnings, setInputWarnings] = useState([]);
   const [emissionStage, setEmissionStage] = useState(null);
+  const [signatureIntegrity, setSignatureIntegrity] = useState({});
 
   const getFieldRequirement = (elementName) => {
     return getFieldRequirementSpec(xmlSpecifications, currentVersion, currentAgreement, elementName);
@@ -159,6 +160,11 @@ const CODViewer = () => {
 
       setXmlData(xmlDoc);
       setError(null);
+
+      // Se pide una sola vez por documento (no por cada firma) y se reutiliza tanto en la
+      // vista web como al generar el PDF — ver checkSignatureIntegrity en signature-utils.js.
+      setSignatureIntegrity({});
+      checkSignatureIntegrity(xmlContent).then(setSignatureIntegrity);
     } catch (err) {
       setError('Error al procesar el XML: ' + err.message);
       setXmlData(null);
@@ -188,7 +194,7 @@ const CODViewer = () => {
     
     try {
       setPdfGenerating(true);
-      const result = await generateCODPDF(xmlData, { inputWarnings, emissionStage });
+      const result = await generateCODPDF(xmlData, { inputWarnings, emissionStage, signatureIntegrity });
       
       if (!result.success) {
         setError(`Error al generar PDF: ${result.error}`);
@@ -350,7 +356,7 @@ const CODViewer = () => {
             version={currentVersion}
           />
 
-          <DocumentSignatures xmlDoc={xmlData} />
+          <DocumentSignatures xmlDoc={xmlData} integrityResults={signatureIntegrity} />
 
           <Section title="Estructura del Certificado de Origen" level={0}>
             <Section title="Certificado de Origen Digital (CODEH)" level={1} className="col-span-full">

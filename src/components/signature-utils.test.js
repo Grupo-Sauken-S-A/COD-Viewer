@@ -166,6 +166,49 @@ describe('getSignatureStatusDisplay', () => {
     expect(display.severity).toBe('ok');
   });
 
+  it('severidad "error" y alerta clara cuando integrityValid es false (documento editado post-firma)', () => {
+    // Este es el caso central que motivó agregar la verificación de integridad: un COD con
+    // certificado vigente y algoritmo fuerte, pero cuyo contenido firmado fue alterado.
+    const display = getSignatureStatusDisplay({
+      hasSignature: true,
+      signerName: 'Alguien',
+      signatureAlgorithm: 'RSA-SHA256',
+      signatureAlgorithmWeak: false,
+      digestAlgorithm: 'SHA-256',
+      certNotBefore: new Date('2020-01-01T00:00:00Z'),
+      certNotAfter: new Date('2022-01-01T00:00:00Z'),
+      referenceDate: new Date('2021-01-01T00:00:00Z'),
+      referenceDateSource: 'DeclarationDate',
+      certValidityKnown: true,
+      certExpired: false,
+      certNotYetValid: false,
+      duplicateSignatures: false,
+      integrityValid: false,
+    });
+    expect(display.severity).toBe('error');
+    expect(display.text).toMatch(/modificado después de haber sido firmado/);
+    expect(display.text).toMatch(/INVÁLIDA/);
+  });
+
+  it('confirma la integridad cuando integrityValid es true', () => {
+    const display = getSignatureStatusDisplay({
+      hasSignature: true, signerName: 'Alguien', signatureAlgorithm: 'RSA-SHA256',
+      signatureAlgorithmWeak: false, digestAlgorithm: 'SHA-256', duplicateSignatures: false,
+      integrityValid: true,
+    });
+    expect(display.text).toMatch(/Integridad verificada/);
+    expect(display.severity).toBe('ok');
+  });
+
+  it('no afirma nada cuando integrityValid es null/undefined (no se pudo determinar)', () => {
+    const display = getSignatureStatusDisplay({
+      hasSignature: true, signerName: 'Alguien', signatureAlgorithm: 'RSA-SHA256',
+      signatureAlgorithmWeak: false, digestAlgorithm: 'SHA-256', duplicateSignatures: false,
+    });
+    expect(display.text).toMatch(/No se pudo verificar criptográficamente/);
+    expect(display.severity).toBe('ok');
+  });
+
   it('menciona S-FiDE como sugerencia de aplicación alternativa', () => {
     const display = getSignatureStatusDisplay({ hasSignature: false, error: 'x' });
     // El caso sin firma no incluye la nota; se prueba con un caso con firma.

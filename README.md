@@ -10,7 +10,7 @@ Desarrollado por [Sauken](https://sauken.com.ar/) para [Certificados de Origen](
 - Valida el archivo de entrada: codificación UTF-8, versión y acuerdo reconocidos, estructura básica del COD, `Content-Type` de la URL remota — avisa sin bloquear la vista.
 - Muestra cada campo del certificado marcando si es **obligatorio**, **opcional** o **no corresponde**, según la combinación de versión del COD (`CODVer`) y acuerdo comercial (`AgreementAcronym`). Esas reglas están tabuladas en [`src/components/xml-specifications.js`](src/components/xml-specifications.js), documentadas en detalle en [`docs/BUSINESS_RULES.md`](docs/BUSINESS_RULES.md).
 - Avisa si aparecen campos con datos que no corresponden al acuerdo/versión del certificado.
-- Verifica las firmas digitales (XMLDSig) de los elementos `COD` y `CODEH`: algoritmo, firmante, y si el certificado estaba vigente en el momento real de esa firma (no en el momento de mirarlo). **No valida criptográficamente la firma** ni su revocación — solo informa presencia y vigencia temporal.
+- Verifica las firmas digitales (XMLDSig) de los elementos `COD` y `CODEH`: algoritmo, firmante, si el certificado estaba vigente en el momento real de esa firma (no en el momento de mirarlo), y la **integridad criptográfica real** (recalcula el digest y verifica `SignatureValue` — detecta si el documento fue editado después de firmarlo, vía [`/api/verify-signature-integrity`](src/app/api/verify-signature-integrity/route.js)). No valida revocación ni la cadena de confianza del certificado.
 - Detecta en qué etapa del proceso de emisión está el COD (borrador, firmado por el Exportador, certificado por la Entidad Habilitada, completo) y lo avisa si no está terminado.
 - Exporta el certificado visualizado a PDF (`jspdf` + `jspdf-autotable`), A4, comprimido, con la versión de la app en el pie de página.
 
@@ -52,12 +52,13 @@ Una parte de los tests usa COD reales de producción como fixtures (para probar 
 src/
   app/
     api/proxy/route.js     # proxy server-side para cargar XML por URL (?xmlUri=)
+    api/verify-signature-integrity/route.js  # verificación criptográfica real (digest + SignatureValue vía xml-crypto)
     layout.js, page.js      # layout y entrada de Next.js (App Router)
   components/
     CODViewer.jsx            # componente principal: carga, valida, parsea y renderiza el certificado
     pdf-generator.js         # generación del PDF equivalente a lo que se ve en pantalla
     signature-components.js  # UI: campos y alertas (entrada, elementos inesperados, etapa de emisión)
-    signature-utils.js       # firmas digitales (verificación, no validación criptográfica) + etapa de emisión
+    signature-utils.js       # firmas digitales (verificación de presencia/vigencia/integridad) + etapa de emisión
     xml-specifications.js    # tabla de reglas M/O/NC por versión y acuerdo
     country-codes.js         # mapeo de códigos de país a nombre
   lib/

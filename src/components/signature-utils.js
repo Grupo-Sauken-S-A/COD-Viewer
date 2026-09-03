@@ -158,6 +158,30 @@ const getSignatureReferenceDate = (xmlDoc, elementId) => {
 };
 
 /**
+ * Pide al servidor (/api/verify-signature-integrity) que verifique criptográficamente si el
+ * contenido firmado de #COD/#CODEH coincide con lo que se firmó — la única forma real de
+ * detectar si el documento fue editado después de firmado. Corre server-side porque requiere
+ * canonicalización XML (C14N/exclusive-C14N), que no tiene equivalente nativo en el navegador.
+ * Se llama una sola vez por documento cargado (no por cada firma) y se reutiliza el resultado
+ * tanto en la vista web como en el PDF. Devuelve {} (integridad "no determinada" para ambas)
+ * ante cualquier error de red — nunca se asume válido por falta de respuesta.
+ */
+export const checkSignatureIntegrity = async (xmlContent) => {
+    try {
+        const response = await fetch('/api/verify-signature-integrity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ xmlContent })
+        });
+        if (!response.ok) return {};
+        return await response.json();
+    } catch (error) {
+        console.error('Error verificando integridad de firmas:', error);
+        return {};
+    }
+};
+
+/**
  * Verifica la existencia de firma digital para un elemento específico y junta
  * la información relevante: algoritmos, firmante, vigencia del certificado
  * (comparada contra la fecha real de esa firma, no contra hoy) y si hay más
@@ -264,6 +288,18 @@ export const getSignatureStatusDisplay = (signatureStatus) => {
     const REFERENCE_DATE_LABEL = { DeclarationDate: 'Fecha de Declaración del Exportador', CertificateDate: 'Fecha de Certificación de la EH' };
     const certInvalidAtSigning = signatureStatus.certValidityKnown && (signatureStatus.certExpired || signatureStatus.certNotYetValid);
 
+    // integrityValid: true = el contenido firmado coincide con lo que se firmó (digest +
+    // SignatureValue verificados criptográficamente); false = el documento fue modificado
+    // después de firmarlo; null/undefined = no se pudo determinar (endpoint no disponible,
+    // algoritmo no soportado, etc.) — nunca se asume válido por defecto.
+    if (signatureStatus.integrityValid === false) {
+        lines.push('', '🛑 ALERTA: el contenido firmado no coincide con la firma registrada — este documento fue modificado después de haber sido firmado. Esta firma (y por lo tanto este COD) debe considerarse INVÁLIDA.');
+    } else if (signatureStatus.integrityValid === true) {
+        lines.push('', 'Integridad verificada: el contenido firmado coincide exactamente con lo que se firmó — no fue modificado después de la firma.');
+    } else {
+        lines.push('', 'No se pudo verificar criptográficamente la integridad de esta firma (algoritmo no soportado o error al procesarla) — no se debe asumir que es válida solo por estar presente.');
+    }
+
     // Se arma como un único párrafo continuo (no una línea forzada por oración) para que el
     // ajuste de texto use todo el ancho disponible en vez de cortar cada frase por separado
     // dejando renglones de largos muy dispares.
@@ -293,13 +329,15 @@ export const getSignatureStatusDisplay = (signatureStatus) => {
         lines.push('⚠ Se encontró más de una firma digital para este mismo elemento.');
     }
 
-    lines.push('', 'Nota: Esta aplicación no realiza validaciones criptográficas sobre la firma digital (no verifica que el hash coincida, la revocación ni la cadena de confianza del certificado). Si desea validar la firma, por favor utilice otra aplicación, por ejemplo S-FiDE.');
+    lines.push('', 'Nota: Esta aplicación verifica la integridad criptográfica de la firma (que el contenido no haya sido modificado después de firmarlo), pero no verifica la revocación ni la cadena de confianza del certificado. Si desea una validación más completa, por favor utilice otra aplicación, por ejemplo S-FiDE.');
 
     const hasWarning = signatureStatus.signatureAlgorithmWeak || signatureStatus.duplicateSignatures;
+    const isTampered = signatureStatus.integrityValid === false;
 
     let severity = 'ok';
     if (hasWarning) severity = 'warning';
     if (certInvalidAtSigning) severity = 'error';
+    if (isTampered) severity = 'error';
 
     const classNameBySeverity = {
         ok: 'text-blue-600 font-medium',

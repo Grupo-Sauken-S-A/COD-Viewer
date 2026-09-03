@@ -119,6 +119,7 @@ class PDFGenerator {
     this.currentAgreement = this.originalAgreement;
     this.inputWarnings = options.inputWarnings || [];
     this.emissionStage = options.emissionStage || null;
+    this.signatureIntegrity = options.signatureIntegrity || {};
 
     // Configurar propiedades del documento
     this.doc.setProperties({
@@ -662,7 +663,9 @@ class PDFGenerator {
 
     for (const sig of signatures) {
       const signatureStatus = await verifySignatureForElement(xmlDoc, sig.element);
-      const displayInfo = getSignatureStatusDisplay(signatureStatus);
+      const integrityResult = this.signatureIntegrity?.[sig.element];
+      const mergedStatus = { ...signatureStatus, integrityValid: integrityResult?.integrityValid ?? null };
+      const displayInfo = getSignatureStatusDisplay(mergedStatus);
 
       const availableWidth = this.contentWidth - 10;
       // El ancho de línea que calcula splitTextToSize depende de la fuente/tamaño activos
