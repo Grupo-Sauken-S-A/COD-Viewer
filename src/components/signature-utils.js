@@ -229,7 +229,14 @@ export const verifySignatureForElement = async (xmlDoc, elementId) => {
 
 // Se formatea en UTC (timeZone fijo) para que lo que se muestra coincida siempre con el
 // valor literal del XML/certificado, sin importar la zona horaria del navegador o servidor.
-const formatDate = (date) => date ? date.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' }) : null;
+// El locale es-AR escribe "a. m."/"p. m." con un espacio interno; se reemplaza por un
+// espacio de no separación para que el wrap de texto no lo corte a mitad ("a." / "m.)").
+const formatDate = (date) => {
+    if (!date) return null;
+    return date
+        .toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' })
+        .replace(/([ap])\.\s+m\./i, '$1. m.');
+};
 
 /**
  * Obtiene el texto para mostrar el estado de la firma
@@ -257,22 +264,29 @@ export const getSignatureStatusDisplay = (signatureStatus) => {
     const REFERENCE_DATE_LABEL = { DeclarationDate: 'Fecha de Declaración del Exportador', CertificateDate: 'Fecha de Certificación de la EH' };
     const certInvalidAtSigning = signatureStatus.certValidityKnown && (signatureStatus.certExpired || signatureStatus.certNotYetValid);
 
+    // Se arma como un único párrafo continuo (no una línea forzada por oración) para que el
+    // ajuste de texto use todo el ancho disponible en vez de cortar cada frase por separado
+    // dejando renglones de largos muy dispares.
     if (signatureStatus.certNotBefore && signatureStatus.certNotAfter) {
-        lines.push(`Certificado vigente: ${formatDate(signatureStatus.certNotBefore)} a ${formatDate(signatureStatus.certNotAfter)}`);
+        // formatDate puede terminar en "m." (a. m./p. m.) — evita el punto doble.
+        const vigenciaRango = `Certificado vigente: ${formatDate(signatureStatus.certNotBefore)} a ${formatDate(signatureStatus.certNotAfter)}`;
+        let vigenciaText = vigenciaRango + (vigenciaRango.endsWith('.') ? ' ' : '. ');
 
         if (signatureStatus.certValidityKnown) {
             const refLabel = REFERENCE_DATE_LABEL[signatureStatus.referenceDateSource] || 'la fecha de la firma';
             const refDateText = formatDate(signatureStatus.referenceDate);
             if (certInvalidAtSigning) {
                 const motivo = signatureStatus.certExpired ? 'ya había vencido' : 'todavía no era válido';
-                lines.push(`⚠ El certificado NO estaba vigente en ${refLabel} (${refDateText}): ${motivo} en esa fecha.`);
+                vigenciaText += `⚠ El certificado NO estaba vigente en ${refLabel} (${refDateText}): ${motivo} en esa fecha. `;
             } else {
-                lines.push(`El certificado estaba vigente en ${refLabel} (${refDateText}).`);
+                vigenciaText += `El certificado estaba vigente en ${refLabel} (${refDateText}). `;
             }
-            lines.push('Esta aplicación no verifica si el certificado estaba revocado en esa fecha — solo si estaba dentro de su período de vigencia.');
+            vigenciaText += 'Esta aplicación no verifica si el certificado estaba revocado en esa fecha — solo si estaba dentro de su período de vigencia.';
         } else {
-            lines.push('No se pudo determinar si el certificado estaba vigente al momento de firmar (falta la fecha de referencia en el XML).');
+            vigenciaText += 'No se pudo determinar si el certificado estaba vigente al momento de firmar (falta la fecha de referencia en el XML).';
         }
+
+        lines.push('', vigenciaText);
     }
 
     if (signatureStatus.duplicateSignatures) {
