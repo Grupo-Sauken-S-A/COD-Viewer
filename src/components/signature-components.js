@@ -150,6 +150,42 @@ export const SignatureStatus = ({ xmlDoc, elementId, elementName }) => {
   );
 };
 
+export const UnexpectedElementsAlert = ({ elements, agreement, version }) => {
+  if (!elements || elements.length === 0) {
+    return null;
+  }
+
+  return (
+    <Alert className="bg-amber-50 border-amber-200">
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
+        <AlertDescription>
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-amber-800">
+              Elementos con datos que no corresponden a este acuerdo/versión
+            </p>
+            <p className="text-sm text-amber-700">
+              Los siguientes campos tienen contenido en el XML pero, según las especificaciones ALADI,
+              no corresponden para el Acuerdo {agreement} / versión {version}. Puede tratarse de datos
+              de otro formulario o de un error en la emisión del certificado.
+            </p>
+            <ul className="space-y-1">
+              {elements.map(({ tag, value }) => (
+                <li key={tag} className="text-sm text-amber-900">
+                  <code className="inline-block px-2 py-0.5 text-xs font-mono bg-white rounded mr-2">
+                    {`<${tag}>`}
+                  </code>
+                  {value.length > 80 ? `${value.slice(0, 80)}…` : value}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </AlertDescription>
+      </div>
+    </Alert>
+  );
+};
+
 export const DocumentSignatures = ({ xmlDoc }) => {
   return (
     <div className="space-y-4">

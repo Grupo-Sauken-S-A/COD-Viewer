@@ -63,6 +63,24 @@ export const getElementWithSpecPriority = (xmlSpecifications, currentVersion, cu
   };
 };
 
+// GoodsItemName y GoodsDescription tienen la misma fila M/O/NC en las 12 combinaciones de
+// version/acuerdo, asi que a diferencia de los demas pares alternativos la tabla no distingue
+// cual tag esperar: se elige por cual esta presente en el XML, no por prioridad de especificacion.
+export const getGoodsItemNameField = (xmlSpecifications, currentVersion, currentAgreement, good) => {
+  const requirement = getFieldRequirement(xmlSpecifications, currentVersion, currentAgreement, 'GoodsItemName');
+  if (requirement === 'NC') {
+    return { value: null, foundElement: null, requirement: 'NC' };
+  }
+
+  const nameValue = good.querySelector('GoodsItemName')?.textContent?.trim();
+  if (nameValue) {
+    return { value: nameValue, foundElement: 'GoodsItemName', requirement };
+  }
+
+  const descriptionValue = good.querySelector('GoodsDescription')?.textContent?.trim();
+  return { value: descriptionValue, foundElement: 'GoodsDescription', requirement };
+};
+
 export const getValueFieldWithSpecPriority = (xmlSpecifications, currentVersion, currentAgreement, good) => {
   const valueReq = getFieldRequirement(xmlSpecifications, currentVersion, currentAgreement, 'GoodsItemValue');
   const fobReq = getFieldRequirement(xmlSpecifications, currentVersion, currentAgreement, 'GoodsItemFOB');
@@ -136,6 +154,29 @@ export const getEHCityFieldWithSpecPriority = (xmlSpecifications, currentVersion
   }
 
   return { value: null, foundElement: null, requirement: 'NC', version: null };
+};
+
+// Recorre todos los elementos conocidos en xml-specifications.js y detecta los que, para la
+// version/acuerdo actual, deberian ser NC (no corresponde) pero tienen contenido en el XML.
+export const getUnexpectedElements = (xmlSpecifications, currentVersion, currentAgreement, xmlDoc) => {
+  if (!xmlSpecifications || !currentVersion || !currentAgreement || !xmlDoc) {
+    return [];
+  }
+
+  const unexpected = [];
+
+  for (const key of Object.keys(xmlSpecifications.especificaciones)) {
+    const tag = key.replace(/[<>]/g, '');
+    const requirement = getFieldRequirement(xmlSpecifications, currentVersion, currentAgreement, tag);
+    if (requirement !== 'NC') continue;
+
+    const value = xmlDoc.querySelector(tag)?.textContent?.trim();
+    if (value) {
+      unexpected.push({ tag, value });
+    }
+  }
+
+  return unexpected;
 };
 
 export const isRequiredFieldEmpty = (value, requirement) => {

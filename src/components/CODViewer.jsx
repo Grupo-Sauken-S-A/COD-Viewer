@@ -3,16 +3,18 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, XCircle, FileText, Download } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Field, Section, DocumentSignatures } from './signature-components';
+import { Field, Section, DocumentSignatures, UnexpectedElementsAlert } from './signature-components';
 import { generateCODPDF } from './pdf-generator';
 import { XML_SPECIFICATIONS } from './xml-specifications.js';
 import {
   AGREEMENT_MAPPING,
   getFieldRequirement as getFieldRequirementSpec,
   getElementWithSpecPriority as getElementWithSpecPrioritySpec,
+  getGoodsItemNameField as getGoodsItemNameFieldSpec,
   getValueFieldWithSpecPriority as getValueFieldWithSpecPrioritySpec,
   getOperatorContent as getOperatorContentSpec,
   getEHCityFieldWithSpecPriority as getEHCityFieldWithSpecPrioritySpec,
+  getUnexpectedElements,
   isRequiredFieldEmpty
 } from '@/lib/cod-spec';
 
@@ -49,7 +51,7 @@ const CODViewer = () => {
   const shouldShowGoodsSection = () => {
     // Verificar si hay elementos Goods en el XML o si algún campo relacionado debe mostrarse
     const hasGoodsElements = xmlData && xmlData.querySelectorAll('Goods').length > 0;
-    const goodsFields = ['GoodsQty', 'GoodsOrderNo', 'GoodsItemCode', 'GoodsItemName', 'GoodsItemWeightAmount', 'GoodsItemMeasureUnit', 'GoodsItemValue', 'GoodsItemFOB', 'GoodsItemOriginRules', 'GoodsDeclarationDate', 'GoodsDeclarationNumber'];
+    const goodsFields = ['GoodsQty', 'GoodsOrderNo', 'GoodsItemCode', 'GoodsItemName', 'GoodsDescription', 'GoodsItemWeightAmount', 'GoodsItemMeasureUnit', 'GoodsItemValue', 'GoodsItemFOB', 'GoodsItemOriginRules', 'GoodsDeclarationDate', 'GoodsDeclarationNumber'];
     const hasRelevantGoodsFields = goodsFields.some(field => shouldShowField(field));
     
     return hasGoodsElements || hasRelevantGoodsFields;
@@ -73,8 +75,8 @@ const CODViewer = () => {
 
   const shouldShowThirdOperatorSection = () => {
     const allOperatorFields = [
-      'ThirdOpCountry', 'ThirdOpBusinessName', 'ThirdOpAddress', 'ThirdOpInvoiceNo', 'ThirdOpInvoiceDate',
-      'Op3cCountry', 'Op3cBusinessName', 'Op3cAddress', 'Op3cInvoiceNo', 'Op3cInvoiceDate'
+      'ThirdOpCountry', 'ThirdOpBusinessName', 'ThirdOpAddress', 'ThirdOpCity', 'ThirdOpInvoiceNo', 'ThirdOpInvoiceDate', 'ThirdOpStatement',
+      'Op3cCountry', 'Op3cBusinessName', 'Op3cAddress', 'Op3cInvoiceNo', 'Op3cInvoiceDate', 'Op3cStatement'
     ];
     
     return allOperatorFields.some(fieldName => {
@@ -272,7 +274,8 @@ const CODViewer = () => {
 
   const certificationEH = xmlData.querySelector('CertificationEH');
   const eh = xmlData.querySelector('EH');
-  
+  const unexpectedElements = getUnexpectedElements(xmlSpecifications, currentVersion, currentAgreement, xmlData);
+
   return (
     <Card>
       <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -319,6 +322,12 @@ const CODViewer = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
+          <UnexpectedElementsAlert
+            elements={unexpectedElements}
+            agreement={originalAgreement}
+            version={currentVersion}
+          />
+
           <DocumentSignatures xmlDoc={xmlData} />
 
           <Section title="Estructura del Certificado de Origen" level={0}>
@@ -534,15 +543,20 @@ const CODViewer = () => {
                           )}
                         </div>
 
-                        {shouldShowField('GoodsItemName') && (
-                          <Field 
-                            label="Descripción"
-                            value={getFieldValue(good.querySelector('GoodsItemName')?.textContent, getFieldRequirement('GoodsItemName'))}
-                            required={getFieldRequirement('GoodsItemName') === 'M'}
-                            optional={getFieldRequirement('GoodsItemName') === 'O'}
-                            hasError={isRequiredFieldEmpty(good.querySelector('GoodsItemName')?.textContent, getFieldRequirement('GoodsItemName'))}
-                          />
-                        )}
+                        {(() => {
+                          const nameResult = getGoodsItemNameFieldSpec(xmlSpecifications, currentVersion, currentAgreement, good);
+                          if (nameResult.requirement === 'NC') return null;
+
+                          return (
+                            <Field
+                              label="Descripción"
+                              value={getFieldValue(nameResult.value, nameResult.requirement)}
+                              required={nameResult.requirement === 'M'}
+                              optional={nameResult.requirement === 'O'}
+                              hasError={isRequiredFieldEmpty(nameResult.value, nameResult.requirement)}
+                            />
+                          );
+                        })()}
 
                         <div className="flex-row-container">
                           {shouldShowField('GoodsItemWeightAmount') && (
@@ -791,6 +805,15 @@ const CODViewer = () => {
                       {renderThirdOperatorField(xmlData, 'Country', 'País')}
                       {renderThirdOperatorField(xmlData, 'BusinessName', 'Razón Social')}
                       {renderThirdOperatorField(xmlData, 'Address', 'Domicilio')}
+                      {shouldShowField('ThirdOpCity') && (
+                        <Field
+                          label="Ciudad"
+                          value={getFieldValue(xmlData.querySelector('ThirdOpCity')?.textContent, getFieldRequirement('ThirdOpCity'))}
+                          required={getFieldRequirement('ThirdOpCity') === 'M'}
+                          optional={getFieldRequirement('ThirdOpCity') === 'O'}
+                          hasError={isRequiredFieldEmpty(xmlData.querySelector('ThirdOpCity')?.textContent, getFieldRequirement('ThirdOpCity'))}
+                        />
+                      )}
                       {renderThirdOperatorField(xmlData, 'InvoiceNo', 'Número de Factura')}
                       {(() => {
                         const result = getOperatorContent(xmlData, 'InvoiceDate');
@@ -804,7 +827,7 @@ const CODViewer = () => {
                         const hasError = isRequiredFieldEmpty(result.value, result.requirement);
 
                         return (
-                          <Field 
+                          <Field
                             label="Fecha de Factura"
                             value={fieldValue}
                             required={result.requirement === 'M'}
@@ -813,6 +836,7 @@ const CODViewer = () => {
                           />
                         );
                       })()}
+                      {renderThirdOperatorField(xmlData, 'Statement', 'Declaración')}
                     </Section>
                   )}
                 </Section>

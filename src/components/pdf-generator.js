@@ -6,6 +6,8 @@ import {
   AGREEMENT_MAPPING,
   getFieldRequirement as getFieldRequirementSpec,
   getElementWithSpecPriority,
+  getGoodsItemNameField,
+  getUnexpectedElements,
   getValueFieldWithSpecPriority as getValueFieldWithSpecPrioritySpec,
   getOperatorContent as getOperatorContentSpec
 } from '@/lib/cod-spec';
@@ -524,8 +526,9 @@ class PDFGenerator {
     }
     
     // Descripción
-    if (this.shouldShowField('GoodsItemName')) {
-      this.addField('Descripción', good.querySelector('GoodsItemName')?.textContent, 'GoodsItemName', 20);
+    const nameResult = getGoodsItemNameField(this.xmlSpecifications, this.currentVersion, this.currentAgreement, good);
+    if (nameResult.requirement !== 'NC') {
+      this.addField('Descripción', nameResult.value, nameResult.foundElement, 20);
     }
     
     // Cantidad, Unidad y Valor en una línea
@@ -602,9 +605,9 @@ class PDFGenerator {
   // Función para verificar si debe mostrar la sección de mercaderías
   shouldShowGoodsSection(xmlData) {
     const hasGoodsElements = xmlData && xmlData.querySelectorAll('Goods').length > 0;
-    const goodsFields = ['GoodsQty', 'GoodsOrderNo', 'GoodsItemCode', 'GoodsItemName', 
-                         'GoodsItemWeightAmount', 'GoodsItemMeasureUnit', 'GoodsItemValue', 
-                         'GoodsItemFOB', 'GoodsItemOriginRules', 'GoodsDeclarationDate', 
+    const goodsFields = ['GoodsQty', 'GoodsOrderNo', 'GoodsItemCode', 'GoodsItemName', 'GoodsDescription',
+                         'GoodsItemWeightAmount', 'GoodsItemMeasureUnit', 'GoodsItemValue',
+                         'GoodsItemFOB', 'GoodsItemOriginRules', 'GoodsDeclarationDate',
                          'GoodsDeclarationNumber'];
     const hasRelevantGoodsFields = goodsFields.some(field => this.shouldShowField(field));
     
@@ -614,8 +617,8 @@ class PDFGenerator {
   // Función para verificar si debe mostrar la sección de tercer operador
   shouldShowThirdOperatorSection(xmlData) {
     const allOperatorFields = [
-      'ThirdOpCountry', 'ThirdOpBusinessName', 'ThirdOpAddress', 'ThirdOpInvoiceNo', 'ThirdOpInvoiceDate',
-      'Op3cCountry', 'Op3cBusinessName', 'Op3cAddress', 'Op3cInvoiceNo', 'Op3cInvoiceDate'
+      'ThirdOpCountry', 'ThirdOpBusinessName', 'ThirdOpAddress', 'ThirdOpCity', 'ThirdOpInvoiceNo', 'ThirdOpInvoiceDate', 'ThirdOpStatement',
+      'Op3cCountry', 'Op3cBusinessName', 'Op3cAddress', 'Op3cInvoiceNo', 'Op3cInvoiceDate', 'Op3cStatement'
     ];
     
     return allOperatorFields.some(fieldName => {
@@ -733,12 +736,64 @@ class PDFGenerator {
     });
   }
 
+  // Elementos que no corresponden a este acuerdo/versión pero traen datos en el XML
+  addUnexpectedElementsAlert(xmlData) {
+    const unexpected = getUnexpectedElements(this.xmlSpecifications, this.currentVersion, this.currentAgreement, xmlData);
+    if (unexpected.length === 0) {
+      return;
+    }
+
+    this.addSection('Elementos con Datos Inesperados', 0);
+
+    const availableWidth = this.contentWidth - 10;
+    const introText = `Los siguientes campos tienen contenido en el XML pero, según las especificaciones ALADI, no corresponden para el Acuerdo ${this.originalAgreement} / versión ${this.currentVersion}. Puede tratarse de datos de otro formulario o de un error en la emisión del certificado.`;
+    const introLines = this.doc.splitTextToSize(introText, availableWidth);
+    const itemLines = unexpected.flatMap(({ tag, value }) => {
+      const shortValue = value.length > 80 ? `${value.slice(0, 80)}…` : value;
+      return this.doc.splitTextToSize(`<${tag}>  ${shortValue}`, availableWidth);
+    });
+
+    const totalLines = introLines.length + itemLines.length;
+    const neededHeight = Math.max(12, totalLines * 3 + 6);
+
+    this.checkPageBreak(neededHeight + 2);
+
+    this.doc.setFillColor(254, 243, 199);
+    this.doc.rect(this.margin + 5, this.currentY, this.contentWidth - 5, neededHeight, 'F');
+
+    const warningRgb = hexToRgb(COLORS.warning);
+    this.doc.setTextColor(warningRgb.r, warningRgb.g, warningRgb.b);
+    this.doc.setFontSize(FONTS.signatureText.size);
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.text('Elementos con datos que no corresponden a este acuerdo/versión', this.margin + 7, this.currentY + 4);
+
+    const primaryRgb = hexToRgb(COLORS.primary);
+    this.doc.setTextColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
+    this.doc.setFont('helvetica', 'normal');
+    this.doc.setFontSize(FONTS.small.size);
+
+    let currentLineY = this.currentY + 7;
+    introLines.forEach(line => {
+      this.doc.text(line, this.margin + 7, currentLineY);
+      currentLineY += 3;
+    });
+    itemLines.forEach(line => {
+      this.doc.text(line, this.margin + 7, currentLineY);
+      currentLineY += 3;
+    });
+
+    this.currentY += neededHeight + 2;
+  }
+
   // Generar PDF completo (actualizado con todas las validaciones)
   async generatePDF(xmlData) {
     try {
       // Configuración inicial
       this.addHeader();
-      
+
+      // Elementos con datos que no corresponden al acuerdo/versión
+      this.addUnexpectedElementsAlert(xmlData);
+
       // Estado de firmas
       this.addSignatureStatus(xmlData);
       
@@ -1006,6 +1061,9 @@ class PDFGenerator {
           this.renderThirdOperatorField(xmlData, 'Country', 'País');
           this.renderThirdOperatorField(xmlData, 'BusinessName', 'Razón Social');
           this.renderThirdOperatorField(xmlData, 'Address', 'Domicilio');
+          if (this.shouldShowField('ThirdOpCity')) {
+            this.addField('Ciudad', xmlData.querySelector('ThirdOpCity')?.textContent, 'ThirdOpCity', 20);
+          }
           this.renderThirdOperatorField(xmlData, 'InvoiceNo', 'Número de Factura');
           
           // Fecha de factura del tercer operador
@@ -1013,6 +1071,8 @@ class PDFGenerator {
           if (invoiceDateResult.requirement !== 'NC') {
             this.addField('Fecha de Factura', formatDate(invoiceDateResult.value), invoiceDateResult.foundElement, 20);
           }
+
+          this.renderThirdOperatorField(xmlData, 'Statement', 'Declaración');
         }
       }
       
