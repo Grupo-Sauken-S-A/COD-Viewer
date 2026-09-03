@@ -10,6 +10,9 @@ y este proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 ### Added
 - Suite de tests automatizados (Vitest + jsdom): `src/lib/cod-spec.js`, `src/lib/input-validation.js` y `src/components/signature-utils.js` con casos sintéticos y contra COD reales de producción; test de humo de `pdf-generator.js`; test de pipeline de carga (`test/pipeline.test.js`) que replica `CODViewer.processXML()`. Los COD reales usados como fixtures no se publican en el repo (van en `test/fixtures/real/`, gitignorado) por contener datos reales de exportadores y firmantes — los tests que los necesitan se saltan solos si el directorio no existe.
 
+### Removed
+- El bloque `headers()` de `next.config.js` que agregaba `Access-Control-Allow-Origin: "*"` (y otros headers CORS) a todas las rutas. No tenía ningún efecto sobre la carga de `?xmlUri=` de cualquier dominio (eso ya funciona vía `/api/proxy`, un fetch server-to-server que nunca estuvo sujeto a CORS) — solo habilitaba que sitios de terceros llamaran a los endpoints de cod-viewer desde el navegador de sus propios visitantes. Combinado con que el proxy no tiene allowlist de host a propósito, ampliaba la superficie de abuso tipo SSRF sin aportar nada al caso de uso real. Verificado contra un COD real en producción (`viewcod.certificadoorigen.com.ar`) antes y después del cambio: comportamiento idéntico.
+
 ## [1.1.0] - 2026-09-03
 
 ### Added
