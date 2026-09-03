@@ -341,7 +341,8 @@ Generado con `jspdf` + `jspdf-autotable`, misma lógica de negocio que la vista 
 ## 13. Deuda conocida / pendiente explícito
 
 - **Sin validar contra XSD** (sección 6) — pausado a pedido explícito del dueño del proyecto.
-- **`Access-Control-Allow-Origin: *` global** en `next.config.js`, aplicado también a `/api/proxy` — pregunta abierta, nunca resuelta (a diferencia de la falta de allowlist del proxy, que sí es intencional y confirmada).
-- **Sin tests automatizados** en el repositorio.
+- **Firmas**: se verifica integridad criptográfica real desde v1.2.0 (sección 8), pero sigue sin validarse la cadena de confianza del certificado ni su estado de revocación (OCSP/CRL) — deliberado, no hay plan de agregarlo.
 - `UnloadingPortName` (sección 4) sigue sin explicación de por qué no se usa.
 - Actualizaciones mayores de dependencias (React 18→19, Tailwind 3→4, etc.) diferidas a propósito — no hay apuro, se evalúan cuando haga falta una funcionalidad que las requiera.
+
+**Resuelto desde la redacción original de esta sección** (dejado como referencia histórica): la falta de tests automatizados (v1.1.0, sección de tests en el `README`) y el `Access-Control-Allow-Origin: *` global en `next.config.js` (removido, ver CHANGELOG v1.2.0).

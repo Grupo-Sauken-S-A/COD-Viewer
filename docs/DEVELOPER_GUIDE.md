@@ -8,7 +8,7 @@ Esta guía explica de qué se trata la aplicación, qué es un COD, cómo se con
 
 La aplicación toma un archivo XML de COD (subido a mano o vía URL), lo interpreta según reglas que dependen de su **versión** y **acuerdo comercial**, muestra sus datos marcando qué es obligatorio/opcional/no aplica, informa el estado de sus firmas digitales y en qué etapa del proceso de emisión se encuentra, y permite exportar todo eso a PDF.
 
-**No es** una herramienta de validación criptográfica de firmas ni de validación contra el XSD oficial de ALADI — ambas cosas están fuera de alcance a propósito (ver §4 y [`BUSINESS_RULES.md` §13](BUSINESS_RULES.md#13-deuda-conocida--pendiente-explícito)).
+Desde v1.2.0 sí verifica la **integridad criptográfica** de la firma (que el contenido no haya sido modificado después de firmarlo — ver §4). Lo que sigue **sin** hacer, a propósito, es validar la cadena de confianza del certificado, consultar revocación (OCSP/CRL), o validar contra el XSD oficial de ALADI (ver [`BUSINESS_RULES.md` §13](BUSINESS_RULES.md#13-deuda-conocida--pendiente-explícito)).
 
 ## 2. Qué es un COD, en concepto
 
@@ -30,9 +30,9 @@ Cruzando estos dos valores, una tabla de 76 elementos (`src/components/xml-speci
 
 ## 4. Firmas digitales: qué se verifica y qué no
 
-cod-viewer verifica la **presencia** de las dos firmas (por `Reference URI="#COD"` / `="#CODEH"`), el algoritmo usado, y si el certificado del firmante estaba dentro de su período de vigencia **en el momento real de esa firma** (no en el momento en que alguien abre el certificado para mirarlo — un detalle importante, explicado en detalle en [`BUSINESS_RULES.md` §8](BUSINESS_RULES.md#8-firmas-digitales)).
+cod-viewer verifica la **presencia** de las dos firmas (por `Reference URI="#COD"` / `="#CODEH"`), el algoritmo usado, si el certificado del firmante estaba dentro de su período de vigencia **en el momento real de esa firma** (no en el momento en que alguien abre el certificado para mirarlo), y — desde v1.2.0 — la **integridad criptográfica real**: recalcula el digest del contenido firmado (aplicando la canonicalización XML que declara la propia firma) y verifica `SignatureValue` contra la clave pública del certificado embebido, vía `xml-crypto` (`POST /api/verify-signature-integrity`, corre server-side). Si el contenido fue editado después de firmarlo, se detecta y se marca en rojo. Todo el detalle técnico está en [`BUSINESS_RULES.md` §8](BUSINESS_RULES.md#8-firmas-digitales).
 
-Lo que **no** hace, y lo aclara explícitamente en la propia interfaz: no recalcula el hash del contenido firmado, no valida la cadena de confianza del certificado contra una Autoridad Certificante, y no consulta si el certificado fue revocado. Es decir: informa si la firma existe y si el certificado era temporalmente válido, no si la firma es criptográficamente correcta ni si el certificado seguía siendo confiable en ese momento.
+Lo que **no** hace, y lo aclara explícitamente en la propia interfaz: no valida la cadena de confianza del certificado contra una Autoridad Certificante, y no consulta si el certificado fue revocado (OCSP/CRL). Es decir: informa si la firma existe, si su contenido no fue alterado, y si el certificado era temporalmente válido — no si el certificado seguía siendo confiable (no revocado) en ese momento.
 
 ## 5. La etapa de emisión
 
@@ -45,6 +45,8 @@ src/
   app/
     api/proxy/route.js       # trae un XML por URL server-side (evita CORS); valida
                               # el Content-Type de la respuesta antes de aceptarla
+    api/verify-signature-integrity/route.js  # verificación XMLDSig real (digest +
+                              # SignatureValue vía xml-crypto) — corre server-side
     layout.js, page.js        # shell de Next.js (App Router)
   components/
     CODViewer.jsx              # componente principal: carga el XML, corre las
