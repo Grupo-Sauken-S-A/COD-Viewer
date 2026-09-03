@@ -5,7 +5,7 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
-## [1.1.0] - 2026-09-02
+## [1.1.0] - 2026-09-03
 
 ### Added
 - Detección de la etapa de emisión del COD (borrador, firmado por el Exportador, certificado por la Entidad Habilitada, completo) con alerta visible en pantalla y en el PDF, y marca de agua diagonal en el PDF cuando el documento no está completo.
@@ -15,6 +15,12 @@ y este proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 - Campo `<ThirdOpCity>` ("Ciudad") en la sección Tercer Operador — el único campo de esa familia sin equivalente `Op3c`, confirmado contra la documentación oficial de ALADI.
 - Alerta de "elementos con datos inesperados": detecta campos con contenido en el XML que, según la especificación, no corresponden al acuerdo/versión del certificado.
 - Etiquetas "Exportador (EXP)" / "Funcionario Habilitado (FH)" en el estado de firmas, reflejando los roles reales del mecanismo de emisión.
+- Versión de la aplicación (`package.json`, distinta de `CODVer`) visible de forma discreta en pantalla y en el PDF (pie de página + metadata), desde un único punto de verdad en `src/lib/app-version.js`.
+- `docs/BUSINESS_RULES.md` (referencia exhaustiva de reglas de negocio y validaciones) y `docs/DEVELOPER_GUIDE.md` (guía narrativa de onboarding), pensados también para que otros agentes de IA los lean antes de tocar esta lógica.
+- La nota de "no se realizan validaciones criptográficas" ahora sugiere S-FiDE como aplicación alternativa para validar la firma.
+
+### Changed
+- El PDF ahora se genera comprimido (`compress: true`) — mismo contenido, archivos notablemente más livianos.
 
 ### Fixed
 - `Op3cStatement` para A72 en versiones 1.8.x estaba marcado como no correspondiente (`NC`) cuando en la práctica es opcional — corregido contra un XML real.
@@ -23,6 +29,9 @@ y este proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 - El proxy aceptaba respuestas `text/html` como si fueran XML por un error en la validación de `Content-Type`.
 - Falta de `flex-1`/`min-w-0` en las alertas de firma hacía que el texto de la nota se cortara en un punto distinto según la longitud de la etiqueta de cada firma.
 - El texto "(Versión X - Acuerdo Y - Validado como Z)" ahora dice "Usa formulario FormZ", más preciso respecto a lo que realmente indica.
+- El texto de vigencia del certificado se armaba como oraciones cortas separadas por salto de línea forzado, dando renglones de largo muy dispar; ahora es un párrafo continuo que aprovecha todo el ancho disponible, igual que la nota final. "a. m."/"p. m." usan espacio de no separación para no cortarse a mitad de la abreviatura.
+- En el PDF, el ancho de línea de cada firma se medía con la fuente activa en ese momento (heredada de la sección anterior) en vez de la fuente con la que luego se dibujaba el texto, causando cortes de línea desparejos entre la firma del Exportador y la del Funcionario Habilitado.
+- Nombre de la aplicación normalizado a "COD-Viewer" (antes "cod-viewer") en pantalla y PDF.
 
 ## [1.0.1] - 2026-09-02
 
