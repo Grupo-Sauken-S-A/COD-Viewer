@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, XCircle, FileText, Download } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Field, Section, DocumentSignatures, UnexpectedElementsAlert, InputValidationAlert, EmissionStageAlert } from './signature-components';
+import { Field, Section, DocumentSignatures, UnexpectedElementsAlert, InputValidationAlert, EmissionStageAlert, XsdValidationAlert } from './signature-components';
 import { generateCODPDF } from './pdf-generator';
 import { XML_SPECIFICATIONS } from './xml-specifications.js';
 import {
@@ -17,8 +17,8 @@ import {
   getUnexpectedElements,
   isRequiredFieldEmpty
 } from '@/lib/cod-spec';
-import { validateEncoding, validateStructure } from '@/lib/input-validation';
-import { getEmissionStage, validateSubmitterType, checkSignatureIntegrity } from './signature-utils';
+import { validateEncoding, validateStructure, validateSize, validateBOM, decodeXmlBytes } from '@/lib/input-validation';
+import { getEmissionStage, validateSubmitterType, checkSignatureIntegrity, checkXsdValidation } from './signature-utils';
 import { APP_NAME, APP_VERSION } from '@/lib/app-version';
 
 const CODViewer = () => {
@@ -33,6 +33,7 @@ const CODViewer = () => {
   const [inputWarnings, setInputWarnings] = useState([]);
   const [emissionStage, setEmissionStage] = useState(null);
   const [signatureIntegrity, setSignatureIntegrity] = useState({});
+  const [xsdValidation, setXsdValidation] = useState({ applicable: false });
 
   const getFieldRequirement = (elementName) => {
     return getFieldRequirementSpec(xmlSpecifications, currentVersion, currentAgreement, elementName);
@@ -129,7 +130,7 @@ const CODViewer = () => {
     );
   };
 
-  const processXML = (xmlContent) => {
+  const processXML = (xmlContent, { hasBOM = false } = {}) => {
     try {
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(xmlContent, 'text/xml');
@@ -150,21 +151,29 @@ const CODViewer = () => {
       }
 
       const submitterTypeWarning = validateSubmitterType(xmlDoc);
+      const bomWarning = validateBOM(hasBOM);
       const warnings = [
         ...validateEncoding(xmlContent),
         ...validateStructure(xmlDoc, XML_SPECIFICATIONS),
-        ...(submitterTypeWarning ? [submitterTypeWarning] : [])
+        ...(submitterTypeWarning ? [submitterTypeWarning] : []),
+        ...(bomWarning ? [bomWarning] : [])
       ];
       setInputWarnings(warnings);
-      setEmissionStage(getEmissionStage(xmlDoc));
+      const stage = getEmissionStage(xmlDoc);
+      setEmissionStage(stage);
 
       setXmlData(xmlDoc);
       setError(null);
 
-      // Se pide una sola vez por documento (no por cada firma) y se reutiliza tanto en la
-      // vista web como al generar el PDF — ver checkSignatureIntegrity en signature-utils.js.
+      // Ambas corren server-side (C14N y libxml2 no tienen equivalente en el navegador),
+      // se piden una sola vez por documento (no repetidas por cada firma/campo) y su
+      // resultado se reutiliza tanto en la vista web como al generar el PDF — ver
+      // checkSignatureIntegrity/checkXsdValidation en signature-utils.js.
       setSignatureIntegrity({});
       checkSignatureIntegrity(xmlContent).then(setSignatureIntegrity);
+
+      setXsdValidation({ applicable: false });
+      checkXsdValidation(xmlContent, version, stage?.stage).then(setXsdValidation);
     } catch (err) {
       setError('Error al procesar el XML: ' + err.message);
       setXmlData(null);
@@ -182,8 +191,18 @@ const CODViewer = () => {
         return;
       }
 
-      const text = await file.text();
-      processXML(text);
+      // Tamaño primero, sobre file.size directo — sin leer el contenido a memoria para
+      // archivos que ya sabemos que van a ser rechazados (validateSize bloquea, a
+      // diferencia del resto de las validaciones de entrada).
+      const sizeError = validateSize(file.size);
+      if (sizeError) {
+        setError(sizeError);
+        return;
+      }
+
+      const buffer = await file.arrayBuffer();
+      const { content, hasBOM } = decodeXmlBytes(buffer);
+      processXML(content, { hasBOM });
     } catch (err) {
       setError('Error al procesar el archivo: ' + err.message);
     }
@@ -194,7 +213,7 @@ const CODViewer = () => {
     
     try {
       setPdfGenerating(true);
-      const result = await generateCODPDF(xmlData, { inputWarnings, emissionStage, signatureIntegrity });
+      const result = await generateCODPDF(xmlData, { inputWarnings, emissionStage, signatureIntegrity, xsdValidation });
       
       if (!result.success) {
         setError(`Error al generar PDF: ${result.error}`);
@@ -226,8 +245,16 @@ const CODViewer = () => {
                     throw new Error(body?.error || `HTTP error! status: ${response.status}`);
                 }
 
-                const xmlContent = await response.text();
-                processXML(xmlContent);
+                // El proxy ya aplica el tope de 4MB mientras lee la respuesta remota (ver
+                // /api/proxy), pero igual revalidamos acá — y usamos arrayBuffer en vez de
+                // .text() para poder detectar un BOM (ver decodeXmlBytes).
+                const buffer = await response.arrayBuffer();
+                const sizeError = validateSize(buffer.byteLength);
+                if (sizeError) {
+                    throw new Error(sizeError);
+                }
+                const { content, hasBOM } = decodeXmlBytes(buffer);
+                processXML(content, { hasBOM });
             }
         } catch (err) {
             setError('Error al cargar el XML desde URL: ' + err.message);
@@ -347,6 +374,8 @@ const CODViewer = () => {
       <CardContent>
         <div className="space-y-6">
           <InputValidationAlert warnings={inputWarnings} />
+
+          <XsdValidationAlert xsdValidation={xsdValidation} />
 
           <EmissionStageAlert emissionStage={emissionStage} />
 

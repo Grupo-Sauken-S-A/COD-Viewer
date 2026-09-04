@@ -2,6 +2,40 @@ import { AGREEMENT_MAPPING } from './cod-spec';
 
 const KNOWN_AGREEMENTS = Object.keys(AGREEMENT_MAPPING);
 
+// Tope de tamaño para el XML de entrada. A diferencia del resto de las validaciones de
+// este archivo, esta es una protección de recursos (no una regla de negocio de ALADI) —
+// por eso bloquea en vez de solo advertir (decisión explícita del dueño del proyecto).
+export const MAX_XML_SIZE_BYTES = 4 * 1024 * 1024; // 4 MB
+
+// Chequea el tamaño del archivo ANTES de leerlo/decodificarlo — recibe bytes, no el string
+// ya decodificado (evita cargar en memoria algo descomunal solo para poder medirlo).
+export const validateSize = (byteLength) => {
+  if (byteLength > MAX_XML_SIZE_BYTES) {
+    const mb = (byteLength / (1024 * 1024)).toFixed(1);
+    return `El archivo pesa ${mb} MB, supera el máximo admitido de 4 MB.`;
+  }
+  return null;
+};
+
+// Decodifica bytes crudos (ArrayBuffer) como UTF-8 preservando la información de si el
+// archivo traía BOM — TextDecoder con la opción por defecto (ignoreBOM: false) lo quita
+// en silencio, que es justo lo que no queremos acá: necesitamos saber si estaba.
+export const decodeXmlBytes = (arrayBuffer) => {
+  const decoded = new TextDecoder('utf-8', { ignoreBOM: true }).decode(arrayBuffer);
+  const hasBOM = decoded.charCodeAt(0) === 0xFEFF;
+  return { content: hasBOM ? decoded.slice(1) : decoded, hasBOM };
+};
+
+// Un COD con BOM no es un error de esta app en particular, pero ALADI no lo admite —
+// se puede procesar igual (por eso es un warning, no un bloqueo), pero hay que avisar
+// porque es probable que la autoridad aduanera lo rechace por esta causa.
+export const validateBOM = (hasBOM) => {
+  if (hasBOM) {
+    return 'El archivo tiene una marca BOM (Byte Order Mark) al inicio. Un COD no debe contener BOM — es probable que la autoridad aduanera rechace este certificado por esa causa, aunque esta aplicación pudo procesarlo igual.';
+  }
+  return null;
+};
+
 // Chequea la codificación declarada en el prólogo del XML contra UTF-8 (requisito ALADI),
 // y detecta caracteres de reemplazo que delatan una decodificación incorrecta.
 export const validateEncoding = (xmlContent) => {

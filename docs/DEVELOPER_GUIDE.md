@@ -8,7 +8,7 @@ Esta guía explica de qué se trata la aplicación, qué es un COD, cómo se con
 
 La aplicación toma un archivo XML de COD (subido a mano o vía URL), lo interpreta según reglas que dependen de su **versión** y **acuerdo comercial**, muestra sus datos marcando qué es obligatorio/opcional/no aplica, informa el estado de sus firmas digitales y en qué etapa del proceso de emisión se encuentra, y permite exportar todo eso a PDF.
 
-Desde v1.2.0 sí verifica la **integridad criptográfica** de la firma (que el contenido no haya sido modificado después de firmarlo — ver §4). Lo que sigue **sin** hacer, a propósito, es validar la cadena de confianza del certificado, consultar revocación (OCSP/CRL), o validar contra el XSD oficial de ALADI (ver [`BUSINESS_RULES.md` §13](BUSINESS_RULES.md#13-deuda-conocida--pendiente-explícito)).
+Desde v1.2.0 verifica la **integridad criptográfica** de la firma (que el contenido no haya sido modificado después de firmarlo — ver §4), y desde v1.3.0 valida el documento contra el **XSD oficial de ALADI** que le corresponde según su versión y etapa de emisión (ver [`BUSINESS_RULES.md` §6.1](BUSINESS_RULES.md#61-validación-contra-el-xsd-oficial-de-aladi-etapa-2)). Lo que sigue **sin** hacer, a propósito, es validar la cadena de confianza del certificado o consultar revocación (OCSP/CRL) — ver [`BUSINESS_RULES.md` §12](BUSINESS_RULES.md#12-decisiones-de-seguridad-deliberadas).
 
 ## 2. Qué es un COD, en concepto
 
@@ -44,9 +44,13 @@ Como el COD se construye en 4 pasos (§2), un archivo puede llegar a esta app en
 src/
   app/
     api/proxy/route.js       # trae un XML por URL server-side (evita CORS); valida
-                              # el Content-Type de la respuesta antes de aceptarla
+                              # el Content-Type y el tamaño (4MB) de la respuesta antes
+                              # de aceptarla, y pasa el cuerpo tal cual (sin decodificar)
+                              # para no perder un eventual BOM en el camino
     api/verify-signature-integrity/route.js  # verificación XMLDSig real (digest +
                               # SignatureValue vía xml-crypto) — corre server-side
+    api/validate-xsd/route.js  # validación contra el XSD oficial de ALADI (xmllint-wasm,
+                              # vendorizado en src/lib/xsd/) — corre server-side
     layout.js, page.js        # shell de Next.js (App Router)
   components/
     CODViewer.jsx              # componente principal: carga el XML, corre las
@@ -60,7 +64,9 @@ src/
   lib/
     cod-spec.js                 # reglas de requerimiento de campo + alternancia,
                                  # compartido entre CODViewer y pdf-generator
-    input-validation.js         # validaciones de codificación/estructura del XML
+    input-validation.js         # validaciones de codificación/estructura/tamaño/BOM del XML
+    xsd-schema-selection.js     # qué XSD (de src/lib/xsd/) corresponde a una versión/etapa
+    xsd/                         # los 9 XSD de ALADI vendorizados + el de xmldsig importado
     app-version.js              # versión de la app (de package.json), para mostrarla
                                  # en pantalla y en el PDF sin confundirla con CODVer
 ```

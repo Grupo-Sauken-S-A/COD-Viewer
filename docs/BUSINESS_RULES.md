@@ -12,6 +12,7 @@ Fuentes usadas para armar este documento: el código fuente actual, el documento
 4. [La tabla de requerimientos M/O/NC](#4-la-tabla-de-requerimientos-moNC)
 5. [Reglas de alternancia entre campos](#5-reglas-de-alternancia-entre-campos)
 6. [Validaciones sobre el archivo XML de entrada](#6-validaciones-sobre-el-archivo-xml-de-entrada)
+   - [6.1. Validación contra el XSD oficial de ALADI (Etapa 2)](#61-validación-contra-el-xsd-oficial-de-aladi-etapa-2)
 7. [Detección de elementos con datos inesperados](#7-detección-de-elementos-con-datos-inesperados)
 8. [Firmas digitales](#8-firmas-digitales)
 9. [Etapa de emisión del COD](#9-etapa-de-emisión-del-cod)
@@ -211,14 +212,60 @@ Implementadas en `src/lib/input-validation.js` (`validateEncoding`, `validateStr
 | Codificación del prólogo XML | Que el `encoding="..."` declarado sea UTF-8 | ALADI exige UTF-8; el navegador decodifica siempre como UTF-8 sin mirar esta declaración, así que un XML mal declarado no se detecta solo |
 | Caracteres de reemplazo (`�`, U+FFFD) | Que no aparezcan en el contenido decodificado | Señal de que la codificación real no era UTF-8 aunque el prólogo no lo declare mal — nombres/direcciones con tildes pueden corromperse en silencio si no se avisa esto |
 | `CODSubmitterType` | Que sea `"EXP"` | Es el único valor esperado según el mecanismo de emisión (sección 1) |
+| Tamaño del archivo | Que no supere 4 MB | Ver más abajo — a diferencia de todo lo demás en esta tabla, **bloquea** en vez de advertir |
+| BOM (Byte Order Mark) | Que el archivo no empiece con U+FEFF | Ver más abajo |
 
 **Camino por URL (`?xmlUri=`)**: el proxy (`src/app/api/proxy/route.js`) además valida el `Content-Type` de la respuesta remota — rechaza explícitamente `html`, `json`, `image/*`, `video/*`, `audio/*`, `pdf` antes de intentar parsear el cuerpo como XML (evita que una página de error HTML con status 200 pase como si fuera el certificado).
 
-**Todas estas validaciones son advertencias, no bloqueos** — el resto del contenido se sigue mostrando siempre (criterio consistente en toda la app: avisar, no ocultar).
+**Todas estas validaciones son advertencias, no bloqueos, con una única excepción (el tamaño)** — el resto del contenido se sigue mostrando siempre (criterio consistente en toda la app: avisar, no ocultar).
 
-### Explícitamente fuera de alcance (por ahora)
+### Límite de tamaño (4 MB) — bloqueante, no una advertencia
 
-**Validación contra el XSD** que el propio XML declara en `xsi:schemaLocation` (ej. `cod_ver_4.1.1.xsd`) — decisión consciente de dejarlo pendiente, no implementado.
+`validateSize()` (`src/lib/input-validation.js`, constante `MAX_XML_SIZE_BYTES`) rechaza directamente un archivo de más de 4 MB, tanto en la carga por archivo (sobre `file.size`, antes de leer el contenido) como en el proxy (`/api/proxy`, cortando la lectura del cuerpo remoto en el momento en que se supera el límite — no alcanza con mirar el header `Content-Length`, que puede faltar o venir mal informado). A diferencia de toda otra validación de esta sección, esta **bloquea el procesamiento** en vez de solo advertir — decisión explícita del dueño del proyecto (2026-09-04): es una protección de recursos, no una regla de negocio de ALADI, así que no aplica el criterio de "avisar, nunca ocultar" del resto de la tabla. Es más sensible en el proxy porque ya es una decisión deliberada no tener allowlist de host (sección 12) — sin este tope, cualquier URL podía hacer que el server bufferee una respuesta arbitrariamente grande en memoria.
+
+### BOM (Byte Order Mark) — advertencia, no bloqueo
+
+Un COD real no debe traer BOM UTF-8 al inicio del archivo. `validateBOM()`/`decodeXmlBytes()` (`src/lib/input-validation.js`) lo detectan explícitamente: se decodifica con `TextDecoder('utf-8', { ignoreBOM: true })` (el modo por defecto de `TextDecoder`/`file.text()`/`response.text()` lo quita en silencio, que es exactamente lo que no queremos acá), se revisa el primer carácter decodificado, y si hay BOM se lo quita del contenido antes de seguir procesando (para no romper el resto del pipeline) pero se avisa al usuario — a diferencia del tamaño, **esto sí sigue el criterio general: se procesa igual, solo se advierte**, porque un COD con BOM técnicamente se puede interpretar. El mensaje aclara explícitamente que es probable que la autoridad aduanera rechace el certificado por esta causa, aunque la app haya podido mostrarlo. Para que esta detección sobreviva el viaje por `/api/proxy` (camino `?xmlUri=`), el proxy pasa el cuerpo remoto tal cual, en bytes crudos, sin decodificar/reencodear como texto — decodificar y reencodear ahí habría quitado el BOM antes de que el cliente pudiera verlo.
+
+## 6.1. Validación contra el XSD oficial de ALADI (Etapa 2)
+
+**Implementado desde v1.3.0** en `POST /api/validate-xsd`, vía `xmllint-wasm` (libxml2 compilado a WebAssembly) — corre server-side porque no hay validación de XSD nativa en el navegador. Se llama una sola vez por documento cargado desde `processXML()` (mismo patrón que `checkSignatureIntegrity`), y el resultado se reutiliza en pantalla (`XsdValidationAlert`) y en el PDF (`addXsdValidationAlert`).
+
+### Los XSD están vendorizados, no se resuelven por red
+
+Los 9 archivos que ALADI declara vía `xsi:schemaLocation` en el propio XML (3 versiones × 3 variantes de firma) están copiados en `src/lib/xsd/` — **la app ignora deliberadamente el `schemaLocation` que trae el XML** y siempre usa su propia copia local, elegida por versión/etapa (ver más abajo), nunca por lo que el documento diga de sí mismo. Dos razones:
+
+- **Seguridad**: confiar en una URL que viene de dentro del documento que se está validando (dato no confiable, subido por el usuario) para decidir qué recurso pedir por red es un vector de SSRF — el server terminaría pidiendo cualquier URL que el XML declare.
+- **Velocidad y resiliencia**: no depender de que `codaladi.org`/`certificadoorigen.com.ar` estén arriba en cada validación.
+
+Detalle completo de qué se modificó respecto de los archivos originales de ALADI (se les sacó el BOM a los de 4.1.1, y se corrigió un bug del propio XSD de ALADI — un espacio de más en el `schemaLocation` del `<xs:import>` de xmldsig, que además apuntaba a una URL remota) en [`src/lib/xsd/README.md`](../src/lib/xsd/README.md).
+
+### Selección del XSD: versión + etapa de emisión
+
+`resolveXsdFileName()` (`src/lib/xsd-schema-selection.js`) cruza `CODVer` con la etapa que calcula `getEmissionStage()` (sección 9):
+
+| `CODVer` | Familia de XSD |
+|---|---|
+| `1.8.0` | `1.8.2` (1.8.0 nunca tuvo XSD propio, confirmado por el dueño del proyecto) |
+| `1.8.2` | `1.8.2` |
+| `1.8.3` | `1.8.3` |
+| `4.1.1` | `4.1.1` |
+
+| Etapa de emisión | Sufijo del archivo |
+|---|---|
+| 1 — borrador, sin firmar | `_exporter_unsigned` |
+| 2 — firmado por el EXP | `_exporter_signed` |
+| 4 — completo | _(sin sufijo)_ |
+| 3 — certificado por la EH, sin firma del FH | **sin XSD — no se valida** |
+| "anómalo" | **sin XSD — no se valida** |
+
+**Por qué la etapa 3 no tiene XSD**: un COD en etapa 3 tiene `<EH>`/`<CertificationEH>` (que el esquema `_exporter_signed` prohíbe — no los declara en absoluto) pero le falta la firma del FH (que el esquema completo exige, sin `minOccurs="0"`). Ningún archivo describe exactamente esa forma intermedia, así que validar contra cualquiera de los dos daría un error esperado y no informativo, no una anomalía real del documento — decisión explícita del dueño del proyecto (2026-09-04) de no validar en absoluto para esas dos etapas, en vez de generar (a) un cuarto esquema sintético derivado del completo, o (b) filtrar por mensaje el único error esperado.
+
+### Severidad y qué se muestra
+
+Resultado no bloqueante — amarillo/ámbar (`XsdValidationAlert`, `addXsdValidationAlert` en el PDF), igual criterio que el resto de las validaciones de entrada: se muestra el nombre del XSD contra el que se validó y la lista de errores tal como los devuelve `xmllint`, sin ocultar el resto del certificado. Si la versión es desconocida o la etapa es 3/"anómalo", el endpoint devuelve `{applicable: false}` y no se muestra nada (no es un error, es que no corresponde validar en ese caso).
+
+Verificado contra los 6 XML reales de `test/fixtures/real/`: los 6 validan limpio contra el XSD que les corresponde (`src/app/api/validate-xsd/route.test.js`).
 
 ## 7. Detección de elementos con datos inesperados
 
@@ -341,9 +388,8 @@ Generado con `jspdf` + `jspdf-autotable`, misma lógica de negocio que la vista 
 
 ## 13. Deuda conocida / pendiente explícito
 
-- **Sin validar contra XSD** (sección 6) — pausado a pedido explícito del dueño del proyecto.
 - Actualizaciones mayores de dependencias (React 18→19, Tailwind 3→4, etc.) diferidas a propósito — no hay apuro, se evalúan cuando haga falta una funcionalidad que las requiera.
 
-**Resuelto desde la redacción original de esta sección** (dejado como referencia histórica): la falta de tests automatizados (v1.1.0, sección de tests en el `README`), el `Access-Control-Allow-Origin: *` global en `next.config.js` (removido, ver CHANGELOG v1.2.0), y `UnloadingPortName` (sección 4 — confirmado que nunca se usa, bajado a O en toda la tabla).
+**Resuelto desde la redacción original de esta sección** (dejado como referencia histórica): la falta de tests automatizados (v1.1.0, sección de tests en el `README`), el `Access-Control-Allow-Origin: *` global en `next.config.js` (removido, ver CHANGELOG v1.2.0), `UnloadingPortName` (sección 4 — confirmado que nunca se usa, bajado a O en toda la tabla), y la validación contra el XSD oficial de ALADI (sección 6.1, implementada en v1.3.0).
 
 **Movido de esta sección a "Decisiones de seguridad deliberadas" (sección 12)**: la falta de validación de cadena de confianza/revocación del certificado — no es deuda, es una decisión permanente del dueño del proyecto.

@@ -120,6 +120,7 @@ class PDFGenerator {
     this.inputWarnings = options.inputWarnings || [];
     this.emissionStage = options.emissionStage || null;
     this.signatureIntegrity = options.signatureIntegrity || {};
+    this.xsdValidation = options.xsdValidation || { applicable: false };
 
     // Configurar propiedades del documento
     this.doc.setProperties({
@@ -771,6 +772,49 @@ class PDFGenerator {
     this.currentY += neededHeight + 2;
   }
 
+  // El documento no cumple el XSD oficial de ALADI que le corresponde (ver
+  // src/lib/xsd-schema-selection.js) — misma lógica/severidad que la vista web (XsdValidationAlert).
+  addXsdValidationAlert() {
+    if (!this.xsdValidation?.applicable || this.xsdValidation.valid !== false) {
+      return;
+    }
+
+    this.addSection('El documento no cumple el esquema XSD oficial de ALADI', 0);
+
+    const availableWidth = this.contentWidth - 10;
+    const introText = `Se validó contra ${this.xsdValidation.schemaFile}. Esto no impide ver el resto del certificado, pero indica un problema real de estructura.`;
+    const introLines = this.doc.splitTextToSize(introText, availableWidth);
+    const itemLines = (this.xsdValidation.errors || []).flatMap((message) =>
+      this.doc.splitTextToSize(`• ${message}`, availableWidth)
+    );
+
+    const totalLines = introLines.length + itemLines.length;
+    const neededHeight = Math.max(12, totalLines * 3 + 6);
+    this.checkPageBreak(neededHeight + 2);
+
+    this.doc.setFillColor(254, 243, 199);
+    this.doc.rect(this.margin + 5, this.currentY, this.contentWidth - 5, neededHeight, 'F');
+
+    const warningRgb = hexToRgb(COLORS.warning);
+    this.doc.setTextColor(warningRgb.r, warningRgb.g, warningRgb.b);
+    this.doc.setFontSize(FONTS.signatureText.size);
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.text('El documento no cumple el esquema XSD oficial de ALADI', this.margin + 7, this.currentY + 4);
+
+    const primaryRgb = hexToRgb(COLORS.primary);
+    this.doc.setTextColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
+    this.doc.setFont('helvetica', 'normal');
+    this.doc.setFontSize(FONTS.small.size);
+
+    let currentLineY = this.currentY + 7;
+    [...introLines, ...itemLines].forEach((line) => {
+      this.doc.text(line, this.margin + 7, currentLineY);
+      currentLineY += 3;
+    });
+
+    this.currentY += neededHeight + 2;
+  }
+
   // Etapa de emisión del COD: alerta si no está completo (etapa 4) o si el orden de firmas es anómalo
   addEmissionStageAlert() {
     if (!this.emissionStage || this.emissionStage.stage === 4) {
@@ -892,6 +936,7 @@ class PDFGenerator {
 
       // Advertencias sobre el archivo y estado del proceso de emisión
       this.addInputValidationAlert();
+      this.addXsdValidationAlert();
       this.addEmissionStageAlert();
 
       // Elementos con datos que no corresponden al acuerdo/versión

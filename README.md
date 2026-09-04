@@ -7,7 +7,8 @@ Desarrollado por [Sauken](https://sauken.com.ar/) para [Certificados de Origen](
 ## Qué hace
 
 - Carga un XML de COD desde el disco, o automáticamente vía el parámetro `?xmlUri=<url>` en la URL (por ejemplo `http://localhost:3000/?xmlUri=https://ejemplo.com/certificado.xml`). En este segundo caso el XML se trae a través de `/api/proxy`, una ruta interna que evita problemas de CORS al pedirlo desde el navegador.
-- Valida el archivo de entrada: codificación UTF-8, versión y acuerdo reconocidos, estructura básica del COD, `Content-Type` de la URL remota — avisa sin bloquear la vista.
+- Valida el archivo de entrada: codificación UTF-8, BOM, versión y acuerdo reconocidos, estructura básica del COD, `Content-Type` de la URL remota — avisa sin bloquear la vista, salvo el tamaño (máximo 4 MB), que sí bloquea el procesamiento.
+- Valida el certificado contra el **XSD oficial de ALADI** que le corresponde según su versión y etapa de emisión (vendorizado en [`src/lib/xsd/`](src/lib/xsd/), vía [`xmllint-wasm`](src/app/api/validate-xsd/route.js)) — avisa sin bloquear la vista.
 - Muestra cada campo del certificado marcando si es **obligatorio**, **opcional** o **no corresponde**, según la combinación de versión del COD (`CODVer`) y acuerdo comercial (`AgreementAcronym`). Esas reglas están tabuladas en [`src/components/xml-specifications.js`](src/components/xml-specifications.js), documentadas en detalle en [`docs/BUSINESS_RULES.md`](docs/BUSINESS_RULES.md).
 - Avisa si aparecen campos con datos que no corresponden al acuerdo/versión del certificado.
 - Verifica las firmas digitales (XMLDSig) de los elementos `COD` y `CODEH`: algoritmo, firmante, si el certificado estaba vigente en el momento real de esa firma (no en el momento de mirarlo), y la **integridad criptográfica real** (recalcula el digest y verifica `SignatureValue` — detecta si el documento fue editado después de firmarlo, vía [`/api/verify-signature-integrity`](src/app/api/verify-signature-integrity/route.js)). No valida revocación ni la cadena de confianza del certificado.
@@ -53,6 +54,7 @@ src/
   app/
     api/proxy/route.js     # proxy server-side para cargar XML por URL (?xmlUri=)
     api/verify-signature-integrity/route.js  # verificación criptográfica real (digest + SignatureValue vía xml-crypto)
+    api/validate-xsd/route.js  # validación contra el XSD oficial de ALADI (xmllint-wasm)
     layout.js, page.js      # layout y entrada de Next.js (App Router)
   components/
     CODViewer.jsx            # componente principal: carga, valida, parsea y renderiza el certificado
@@ -64,7 +66,9 @@ src/
   lib/
     cod-spec.js               # lógica de negocio compartida entre CODViewer y pdf-generator
                                # (requerimiento de campo, prioridad Value/FOB, etc.)
-    input-validation.js       # validaciones de codificación y estructura del XML de entrada
+    input-validation.js       # validaciones de codificación, tamaño, BOM y estructura del XML de entrada
+    xsd-schema-selection.js   # qué XSD de src/lib/xsd/ corresponde a una versión/etapa de emisión
+    xsd/                       # XSD oficiales de ALADI vendorizados (ver src/lib/xsd/README.md)
     app-version.js            # versión de la app (package.json), para mostrarla sin confundirla con CODVer
 test/
   pipeline.test.js            # test de integración: replica CODViewer.processXML() de punta a punta

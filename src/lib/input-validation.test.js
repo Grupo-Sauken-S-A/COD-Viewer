@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateEncoding, validateStructure } from './input-validation';
+import { validateEncoding, validateStructure, validateSize, validateBOM, decodeXmlBytes, MAX_XML_SIZE_BYTES } from './input-validation';
 import { XML_SPECIFICATIONS } from '@/components/xml-specifications';
 import { hasRealFixtures, availableRealFixtures, loadRealFixture, replaceElementText } from '../../test/helpers/fixtures';
 
@@ -69,6 +69,38 @@ describe('validateStructure', () => {
     const warnings = validateStructure(doc, XML_SPECIFICATIONS);
     expect(warnings.some((w) => w.includes('id="COD"'))).toBe(true);
     expect(warnings.some((w) => w.includes('id="CODEH"'))).toBe(true);
+  });
+});
+
+describe('validateSize', () => {
+  it('no bloquea un archivo dentro del límite', () => {
+    expect(validateSize(1024)).toBeNull();
+    expect(validateSize(MAX_XML_SIZE_BYTES)).toBeNull();
+  });
+
+  it('bloquea un archivo que supera 4MB, con el tamaño en el mensaje', () => {
+    const error = validateSize(MAX_XML_SIZE_BYTES + 1);
+    expect(error).toMatch(/4 MB/);
+  });
+});
+
+describe('decodeXmlBytes / validateBOM', () => {
+  const encodeUtf8 = (str) => new TextEncoder().encode(str).buffer;
+
+  it('decodifica sin BOM y no lo reporta', () => {
+    const { content, hasBOM } = decodeXmlBytes(encodeUtf8('<root>ok</root>'));
+    expect(content).toBe('<root>ok</root>');
+    expect(hasBOM).toBe(false);
+    expect(validateBOM(hasBOM)).toBeNull();
+  });
+
+  it('detecta un BOM UTF-8 al inicio, lo quita del contenido y avisa (sin bloquear)', () => {
+    const { content, hasBOM } = decodeXmlBytes(encodeUtf8('﻿<root>ok</root>'));
+    expect(content).toBe('<root>ok</root>');
+    expect(hasBOM).toBe(true);
+    const warning = validateBOM(hasBOM);
+    expect(warning).toMatch(/BOM/);
+    expect(warning).toMatch(/aduanera/i);
   });
 });
 

@@ -197,6 +197,36 @@ export const InputValidationAlert = ({ warnings }) => {
   );
 };
 
+export const XsdValidationAlert = ({ xsdValidation }) => {
+  if (!xsdValidation?.applicable || xsdValidation.valid !== false) {
+    return null;
+  }
+
+  return (
+    <Alert className="bg-amber-50 border-amber-200">
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
+        <AlertDescription className="flex-1 min-w-0">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-amber-800">
+              El documento no cumple el esquema XSD oficial de ALADI
+            </p>
+            <p className="text-sm text-amber-700">
+              Se validó contra <code className="text-xs font-mono bg-white px-1 rounded">{xsdValidation.schemaFile}</code>.
+              Esto no impide ver el resto del certificado, pero indica un problema real de estructura.
+            </p>
+            <ul className="text-sm text-amber-700 list-disc list-inside space-y-0.5">
+              {(xsdValidation.errors || []).map((message, index) => (
+                <li key={index}>{message}</li>
+              ))}
+            </ul>
+          </div>
+        </AlertDescription>
+      </div>
+    </Alert>
+  );
+};
+
 export const EmissionStageAlert = ({ emissionStage }) => {
   if (!emissionStage || emissionStage.stage === 4) {
     return null;

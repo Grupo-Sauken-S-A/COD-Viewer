@@ -5,7 +5,12 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
-## [Unreleased]
+## [1.3.0] - 2026-09-04
+
+### Added
+- **Validación contra el XSD oficial de ALADI** (`POST /api/validate-xsd`, vía `xmllint-wasm`): valida el certificado contra el esquema que le corresponde según su versión (`1.8.0`→XSD de `1.8.2`, `1.8.2`, `1.8.3`, `4.1.1`) y su etapa de emisión real (borrador/firmado por el EXP/completo — la etapa "certificado por la EH sin firma del FH" y la "anómala" no tienen XSD que las describa, así que deliberadamente no se validan). Los 9 XSD (3 versiones × 3 variantes de firma) están vendorizados en `src/lib/xsd/` — la app ignora a propósito el `xsi:schemaLocation` que trae el propio XML y siempre usa su copia local, para no depender de red ni exponerse a un SSRF resolviendo una URL que viene de un documento no confiable. No bloquea: se muestra como advertencia (`XsdValidationAlert`), igual que el resto de las validaciones de entrada.
+- **Límite de tamaño de archivo (4 MB)**, único caso entre las validaciones de entrada que **bloquea** en vez de solo advertir (protección de recursos, no una regla de negocio de ALADI) — aplicado tanto en la carga por archivo como en `/api/proxy` (cortando la lectura del cuerpo remoto en vez de confiar en `Content-Length`).
+- **Detección de BOM (Byte Order Mark)** al inicio del archivo: se advierte al usuario (sin bloquear) que un COD con BOM probablemente sea rechazado por la autoridad aduanera. El proxy pasa el cuerpo remoto en bytes crudos, sin decodificar/reencodear, para que esta detección funcione también en el camino `?xmlUri=`.
 
 ### Fixed
 - `<UnloadingPortName>` pasa de M (en casi todas las combinaciones) a O en las 12 combinaciones de versión/acuerdo: confirmado por el dueño del proyecto que nunca se usa en ningún COD real de los acuerdos/versiones que maneja esta app. Sigue sin código que lo lea o lo muestre (a propósito); el cambio evita que se marque como "dato inesperado" si alguna vez aparece con contenido.

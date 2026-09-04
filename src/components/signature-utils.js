@@ -182,6 +182,30 @@ export const checkSignatureIntegrity = async (xmlContent) => {
 };
 
 /**
+ * Pide al servidor (/api/validate-xsd) que valide el documento contra el XSD oficial de
+ * ALADI que le corresponde (según CODVer y la etapa de emisión — ver
+ * src/lib/xsd-schema-selection.js y src/lib/xsd/README.md). Corre server-side porque usa
+ * xmllint-wasm (libxml2), sin equivalente nativo en el navegador. Se llama una sola vez
+ * por documento cargado y se reutiliza el resultado tanto en la vista web como en el PDF.
+ * Devuelve {applicable: false} ante cualquier error de red o si esta combinación de
+ * versión/etapa no tiene XSD (nunca se asume válido ni inválido por falta de respuesta).
+ */
+export const checkXsdValidation = async (xmlContent, version, stage) => {
+    try {
+        const response = await fetch('/api/validate-xsd', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ xmlContent, version, stage })
+        });
+        if (!response.ok) return { applicable: false };
+        return await response.json();
+    } catch (error) {
+        console.error('Error validando contra XSD:', error);
+        return { applicable: false };
+    }
+};
+
+/**
  * Verifica la existencia de firma digital para un elemento específico y junta
  * la información relevante: algoritmos, firmante, vigencia del certificado
  * (comparada contra la fecha real de esa firma, no contra hoy) y si hay más
