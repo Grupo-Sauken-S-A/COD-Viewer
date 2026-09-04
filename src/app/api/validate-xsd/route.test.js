@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { POST } from './route';
 import { getEmissionStage } from '@/components/signature-utils';
+import { XSD_NOT_APPLICABLE_REASON } from '@/lib/xsd-schema-selection';
 import {
   hasRealFixtures,
   availableRealFixtures,
@@ -36,21 +37,24 @@ describe('POST /api/validate-xsd — validaciones de entrada', () => {
     expect(status).toBe(413);
   });
 
-  it('devuelve applicable:false para una versión desconocida', async () => {
+  it('devuelve applicable:false con el motivo para una versión desconocida', async () => {
     const { status, body } = await postJson({ xmlContent: '<root/>', version: '9.9.9', stage: 4 });
     expect(status).toBe(200);
     expect(body.applicable).toBe(false);
+    expect(body.reason).toBe(XSD_NOT_APPLICABLE_REASON.UNKNOWN_VERSION);
   });
 
-  it('devuelve applicable:false para la etapa 3 (sin XSD que la describa)', async () => {
+  it('devuelve applicable:false con el motivo para la etapa 3 (sin XSD que la describa)', async () => {
     const { status, body } = await postJson({ xmlContent: '<root/>', version: '4.1.1', stage: 3 });
     expect(status).toBe(200);
     expect(body.applicable).toBe(false);
+    expect(body.reason).toBe(XSD_NOT_APPLICABLE_REASON.STAGE_3);
   });
 
-  it('devuelve applicable:false para la etapa "anomalo"', async () => {
+  it('devuelve applicable:false con el motivo para la etapa "anomalo"', async () => {
     const { body } = await postJson({ xmlContent: '<root/>', version: '4.1.1', stage: 'anomalo' });
     expect(body.applicable).toBe(false);
+    expect(body.reason).toBe(XSD_NOT_APPLICABLE_REASON.STAGE_ANOMALO);
   });
 });
 
@@ -80,6 +84,9 @@ describe.runIf(hasRealFixtures())('POST /api/validate-xsd — contra COD reales'
       expect(body.applicable).toBe(true);
       expect(body.valid).toBe(false);
       expect(body.errors.length).toBeGreaterThan(0);
+      // Cada error debe poder ubicarse en el XML — no alcanza con decir "hay un problema".
+      expect(body.errors[0].message).toBeTruthy();
+      expect(typeof body.errors[0].line).toBe('number');
     });
   }
 });

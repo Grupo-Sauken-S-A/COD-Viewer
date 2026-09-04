@@ -33,7 +33,7 @@ const CODViewer = () => {
   const [inputWarnings, setInputWarnings] = useState([]);
   const [emissionStage, setEmissionStage] = useState(null);
   const [signatureIntegrity, setSignatureIntegrity] = useState({});
-  const [xsdValidation, setXsdValidation] = useState({ applicable: false });
+  const [xsdValidation, setXsdValidation] = useState(null);
 
   const getFieldRequirement = (elementName) => {
     return getFieldRequirementSpec(xmlSpecifications, currentVersion, currentAgreement, elementName);
@@ -172,7 +172,7 @@ const CODViewer = () => {
       setSignatureIntegrity({});
       checkSignatureIntegrity(xmlContent).then(setSignatureIntegrity);
 
-      setXsdValidation({ applicable: false });
+      setXsdValidation(null);
       checkXsdValidation(xmlContent, version, stage?.stage).then(setXsdValidation);
     } catch (err) {
       setError('Error al procesar el XML: ' + err.message);

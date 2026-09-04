@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
 import path from 'path';
 import { validateXML } from 'xmllint-wasm';
-import { resolveXsdFileName } from '@/lib/xsd-schema-selection';
+import { resolveXsdSchema } from '@/lib/xsd-schema-selection';
 
 const XSD_DIR = path.join(process.cwd(), 'src', 'lib', 'xsd');
 const XMLDSIG_SCHEMA_FILE = 'xmldsig-core-schema.xsd';
@@ -32,13 +32,13 @@ export async function POST(request) {
       return NextResponse.json({ error: 'El XML excede el tamaño máximo soportado' }, { status: 413 });
     }
 
-    const fileName = resolveXsdFileName(version, stage);
-    if (!fileName) {
-      return NextResponse.json({ applicable: false });
+    const schema = resolveXsdSchema(version, stage);
+    if (!schema.applicable) {
+      return NextResponse.json({ applicable: false, reason: schema.reason });
     }
 
     const [schemaContent, xmldsigContent] = await Promise.all([
-      loadSchemaFile(fileName),
+      loadSchemaFile(schema.fileName),
       loadSchemaFile(XMLDSIG_SCHEMA_FILE)
     ]);
 
@@ -52,9 +52,14 @@ export async function POST(request) {
 
     return NextResponse.json({
       applicable: true,
-      schemaFile: fileName,
+      schemaFile: schema.fileName,
       valid: result.valid,
-      errors: (result.errors || []).map((e) => e.message || String(e))
+      // Se conserva la línea (dentro de cod.xml) donde xmllint detectó cada error, para que
+      // la UI pueda decir en qué parte del documento está el problema, no solo que existe.
+      errors: (result.errors || []).map((e) => ({
+        message: e.message || String(e),
+        line: e.loc?.lineNumber ?? null
+      }))
     });
   } catch (error) {
     return NextResponse.json({ error: 'Error al validar contra el XSD: ' + error.message }, { status: 500 });

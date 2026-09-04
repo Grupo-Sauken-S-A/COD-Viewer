@@ -197,11 +197,11 @@ export const checkXsdValidation = async (xmlContent, version, stage) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ xmlContent, version, stage })
         });
-        if (!response.ok) return { applicable: false };
+        if (!response.ok) return { applicable: false, reason: 'error' };
         return await response.json();
     } catch (error) {
         console.error('Error validando contra XSD:', error);
-        return { applicable: false };
+        return { applicable: false, reason: 'error' };
     }
 };
 

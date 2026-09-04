@@ -3,6 +3,7 @@ import { XCircle, Info, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { verifySignatureForElement, getSignatureStatusDisplay } from './signature-utils';
 import { getCountryName } from './country-codes';
+import { getXsdNotApplicableMessage } from '@/lib/xsd-schema-selection';
 
 /**
  * Verifica si un string es una URL válida
@@ -197,9 +198,41 @@ export const InputValidationAlert = ({ warnings }) => {
   );
 };
 
+// Muestra siempre un resultado explícito de la validación contra el XSD de ALADI — que se
+// validó y pasó, que se validó y falló (con el detalle de dónde), o por qué no se validó —
+// nunca queda en silencio, mismo criterio que el resto de las alertas de esta app.
 export const XsdValidationAlert = ({ xsdValidation }) => {
-  if (!xsdValidation?.applicable || xsdValidation.valid !== false) {
-    return null;
+  if (!xsdValidation) {
+    return null; // todavía no respondió /api/validate-xsd
+  }
+
+  if (!xsdValidation.applicable) {
+    return (
+      <Alert className="bg-blue-50 border-blue-200">
+        <div className="flex items-start gap-2">
+          <Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+          <AlertDescription className="flex-1 min-w-0">
+            <p className="text-sm text-blue-800">{getXsdNotApplicableMessage(xsdValidation.reason)}</p>
+          </AlertDescription>
+        </div>
+      </Alert>
+    );
+  }
+
+  if (xsdValidation.valid) {
+    return (
+      <Alert className="bg-blue-50 border-blue-200">
+        <div className="flex items-start gap-2">
+          <Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+          <AlertDescription className="flex-1 min-w-0">
+            <p className="text-sm text-blue-800">
+              El documento cumple el esquema XSD oficial de ALADI (validado contra{' '}
+              <code className="text-xs font-mono bg-white px-1 rounded">{xsdValidation.schemaFile}</code>).
+            </p>
+          </AlertDescription>
+        </div>
+      </Alert>
+    );
   }
 
   return (
@@ -216,8 +249,8 @@ export const XsdValidationAlert = ({ xsdValidation }) => {
               Esto no impide ver el resto del certificado, pero indica un problema real de estructura.
             </p>
             <ul className="text-sm text-amber-700 list-disc list-inside space-y-0.5">
-              {(xsdValidation.errors || []).map((message, index) => (
-                <li key={index}>{message}</li>
+              {(xsdValidation.errors || []).map(({ message, line }, index) => (
+                <li key={index}>{line ? `Línea ${line}: ${message}` : message}</li>
               ))}
             </ul>
           </div>

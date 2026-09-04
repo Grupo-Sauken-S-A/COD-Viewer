@@ -261,11 +261,20 @@ Detalle completo de qué se modificó respecto de los archivos originales de ALA
 
 **Por qué la etapa 3 no tiene XSD**: un COD en etapa 3 tiene `<EH>`/`<CertificationEH>` (que el esquema `_exporter_signed` prohíbe — no los declara en absoluto) pero le falta la firma del FH (que el esquema completo exige, sin `minOccurs="0"`). Ningún archivo describe exactamente esa forma intermedia, así que validar contra cualquiera de los dos daría un error esperado y no informativo, no una anomalía real del documento — decisión explícita del dueño del proyecto (2026-09-04) de no validar en absoluto para esas dos etapas, en vez de generar (a) un cuarto esquema sintético derivado del completo, o (b) filtrar por mensaje el único error esperado.
 
-### Severidad y qué se muestra
+### Severidad y qué se muestra — siempre algo explícito, nunca en silencio
 
-Resultado no bloqueante — amarillo/ámbar (`XsdValidationAlert`, `addXsdValidationAlert` en el PDF), igual criterio que el resto de las validaciones de entrada: se muestra el nombre del XSD contra el que se validó y la lista de errores tal como los devuelve `xmllint`, sin ocultar el resto del certificado. Si la versión es desconocida o la etapa es 3/"anómalo", el endpoint devuelve `{applicable: false}` y no se muestra nada (no es un error, es que no corresponde validar en ese caso).
+Resultado no bloqueante. A diferencia de las demás alertas de esta app (que solo aparecen cuando hay algo que avisar), `XsdValidationAlert`/`addXsdValidationAlert` **siempre muestran un resultado explícito** una vez que `/api/validate-xsd` responde — nunca queda ambiguo si la validación corrió o no (decisión explícita del dueño del proyecto, 2026-09-04, tras notar que la primera versión de esta funcionalidad no confirmaba nada cuando el XML sí cumplía el XSD):
 
-Verificado contra los 6 XML reales de `test/fixtures/real/`: los 6 validan limpio contra el XSD que les corresponde (`src/app/api/validate-xsd/route.test.js`).
+| Resultado de `/api/validate-xsd` | Qué se muestra | Color |
+|---|---|---|
+| `{applicable: true, valid: true}` | "El documento cumple el esquema XSD oficial de ALADI (validado contra `<archivo>`)." | Azul |
+| `{applicable: true, valid: false, errors}` | El mismo mensaje de "no cumple" + la lista de errores tal como los devuelve `xmllint`, cada uno con su número de línea dentro del XML cuando `xmllint` lo pudo determinar (`Línea N: <mensaje>`) | Ámbar |
+| `{applicable: false, reason}` | Por qué no se validó — versión desconocida, etapa 3/"anómalo" (sección anterior), o `reason: 'error'` si `/api/validate-xsd` no respondió (red/servidor) — este último caso dice explícitamente que no se pudo determinar, no que el documento esté bien | Azul |
+| _(sin responder todavía)_ | Nada — mismo criterio que el resto de los chequeos asincrónicos (ver `SignatureStatus`) mientras se espera la respuesta | — |
+
+Los tres primeros textos están centralizados en `getXsdNotApplicableMessage()` (`src/lib/xsd-schema-selection.js`) y en la lógica de cada componente — consumidos igual por la vista web y el PDF, sin duplicar redacción entre los dos.
+
+Verificado contra los 6 XML reales de `test/fixtures/real/`: los 6 validan limpio contra el XSD que les corresponde, y muestran la confirmación en azul (`src/app/api/validate-xsd/route.test.js`).
 
 ## 7. Detección de elementos con datos inesperados
 

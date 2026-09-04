@@ -12,6 +12,7 @@ import {
   getOperatorContent as getOperatorContentSpec
 } from '@/lib/cod-spec';
 import { verifySignatureForElement, getSignatureStatusDisplay } from './signature-utils';
+import { getXsdNotApplicableMessage } from '@/lib/xsd-schema-selection';
 import { APP_NAME, APP_VERSION } from '@/lib/app-version';
 
 // Configuración de colores y estilos
@@ -120,7 +121,7 @@ class PDFGenerator {
     this.inputWarnings = options.inputWarnings || [];
     this.emissionStage = options.emissionStage || null;
     this.signatureIntegrity = options.signatureIntegrity || {};
-    this.xsdValidation = options.xsdValidation || { applicable: false };
+    this.xsdValidation = options.xsdValidation ?? null;
 
     // Configurar propiedades del documento
     this.doc.setProperties({
@@ -772,34 +773,54 @@ class PDFGenerator {
     this.currentY += neededHeight + 2;
   }
 
-  // El documento no cumple el XSD oficial de ALADI que le corresponde (ver
-  // src/lib/xsd-schema-selection.js) — misma lógica/severidad que la vista web (XsdValidationAlert).
+  // Resultado de la validación contra el XSD oficial de ALADI (src/lib/xsd-schema-selection.js)
+  // — siempre muestra algo explícito (validó y pasó / validó y falló, con el detalle de dónde /
+  // por qué no se validó), igual criterio y mismos textos que la vista web (XsdValidationAlert).
+  // Si options.xsdValidation llegó null (el chequeo asincrónico no llegó a resolver antes de
+  // generar el PDF) no se agrega nada — mismo comportamiento que la vista web mientras carga.
   addXsdValidationAlert() {
-    if (!this.xsdValidation?.applicable || this.xsdValidation.valid !== false) {
+    if (!this.xsdValidation) {
       return;
     }
 
-    this.addSection('El documento no cumple el esquema XSD oficial de ALADI', 0);
+    const isValid = this.xsdValidation.applicable && this.xsdValidation.valid;
+    const isInvalid = this.xsdValidation.applicable && !this.xsdValidation.valid;
+
+    const title = isInvalid
+      ? 'El documento no cumple el esquema XSD oficial de ALADI'
+      : 'Validación contra el XSD oficial de ALADI';
+
+    this.addSection(title, 0);
 
     const availableWidth = this.contentWidth - 10;
-    const introText = `Se validó contra ${this.xsdValidation.schemaFile}. Esto no impide ver el resto del certificado, pero indica un problema real de estructura.`;
-    const introLines = this.doc.splitTextToSize(introText, availableWidth);
-    const itemLines = (this.xsdValidation.errors || []).flatMap((message) =>
-      this.doc.splitTextToSize(`• ${message}`, availableWidth)
-    );
+    let bodyLines;
+    if (isValid) {
+      bodyLines = this.doc.splitTextToSize(
+        `El documento cumple el esquema XSD oficial de ALADI (validado contra ${this.xsdValidation.schemaFile}).`,
+        availableWidth
+      );
+    } else if (isInvalid) {
+      const introText = `Se validó contra ${this.xsdValidation.schemaFile}. Esto no impide ver el resto del certificado, pero indica un problema real de estructura.`;
+      const itemLines = (this.xsdValidation.errors || []).flatMap(({ message, line }) =>
+        this.doc.splitTextToSize(`• ${line ? `Línea ${line}: ${message}` : message}`, availableWidth)
+      );
+      bodyLines = [...this.doc.splitTextToSize(introText, availableWidth), ...itemLines];
+    } else {
+      bodyLines = this.doc.splitTextToSize(getXsdNotApplicableMessage(this.xsdValidation.reason), availableWidth);
+    }
 
-    const totalLines = introLines.length + itemLines.length;
-    const neededHeight = Math.max(12, totalLines * 3 + 6);
+    const neededHeight = Math.max(12, bodyLines.length * 3 + 6);
     this.checkPageBreak(neededHeight + 2);
 
-    this.doc.setFillColor(254, 243, 199);
+    const fillColor = isInvalid ? [254, 243, 199] : [219, 234, 254]; // amber-100 / blue-100
+    this.doc.setFillColor(...fillColor);
     this.doc.rect(this.margin + 5, this.currentY, this.contentWidth - 5, neededHeight, 'F');
 
-    const warningRgb = hexToRgb(COLORS.warning);
-    this.doc.setTextColor(warningRgb.r, warningRgb.g, warningRgb.b);
+    const titleRgb = isInvalid ? hexToRgb(COLORS.warning) : hexToRgb(COLORS.accent);
+    this.doc.setTextColor(titleRgb.r, titleRgb.g, titleRgb.b);
     this.doc.setFontSize(FONTS.signatureText.size);
     this.doc.setFont('helvetica', 'bold');
-    this.doc.text('El documento no cumple el esquema XSD oficial de ALADI', this.margin + 7, this.currentY + 4);
+    this.doc.text(title, this.margin + 7, this.currentY + 4);
 
     const primaryRgb = hexToRgb(COLORS.primary);
     this.doc.setTextColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
@@ -807,7 +828,7 @@ class PDFGenerator {
     this.doc.setFontSize(FONTS.small.size);
 
     let currentLineY = this.currentY + 7;
-    [...introLines, ...itemLines].forEach((line) => {
+    bodyLines.forEach((line) => {
       this.doc.text(line, this.margin + 7, currentLineY);
       currentLineY += 3;
     });
