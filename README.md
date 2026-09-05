@@ -1,8 +1,13 @@
 # COD Viewer
 
+[![CI](https://github.com/Grupo-Sauken-S-A/COD-Viewer/actions/workflows/ci.yml/badge.svg)](https://github.com/Grupo-Sauken-S-A/COD-Viewer/actions/workflows/ci.yml)
+[![Licencia: GPL v2](https://img.shields.io/badge/licencia-GPL%20v2-blue.svg)](LICENSE)
+
 Visualizador de Certificados de Origen Digital (COD) ALADI/MERCOSUR. Carga un XML de certificado, valida sus campos según la versión y el acuerdo comercial correspondiente, y permite exportar el resultado a PDF.
 
 Desarrollado por [Sauken](https://sauken.com.ar/) para [Certificados de Origen](https://certificadoorigen.com.ar/).
+
+![Captura del visor mostrando la validación de esquema, el estado de firmas y la etapa de emisión de un COD de ejemplo](docs/screenshots/viewer.png)
 
 ## Qué hace
 
