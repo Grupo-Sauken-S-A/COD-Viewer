@@ -27,7 +27,7 @@ Desarrollado por [Sauken](https://sauken.com.ar/) para [Certificados de Origen](
 
 ## Requisitos
 
-- Node.js 20 o superior.
+- Node.js 20 o superior (para `npm test`, hace falta Node 22.22.2+ o 24.15.0+ — requisito de `jsdom` 30).
 
 ## Instalación y uso
 
