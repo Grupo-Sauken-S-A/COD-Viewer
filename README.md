@@ -12,7 +12,7 @@ Desarrollado por [Sauken](https://sauken.com.ar/) para [Certificados de Origen](
 
 ## Qué hace
 
-- Carga un XML de COD desde el disco, o automáticamente vía el parámetro `?xmlUri=<url>` en la URL (por ejemplo `http://localhost:3000/?xmlUri=https://ejemplo.com/certificado.xml`). En este segundo caso el XML se trae a través de `/api/proxy`, una ruta interna que evita problemas de CORS al pedirlo desde el navegador.
+- Carga un XML de COD desde el disco, o automáticamente vía el parámetro `?xmlUri=<url>` en la URL (por ejemplo `http://localhost:3000/?xmlUri=https://ejemplo.com/certificado.xml`). En este segundo caso el XML se trae a través de `/api/proxy`, una ruta interna que evita problemas de CORS al pedirlo desde el navegador, y aparece un botón **"Descargar"** para bajar el XML original tal cual se recibió.
 - Valida el archivo de entrada: codificación UTF-8, BOM, versión y acuerdo reconocidos, estructura básica del COD, `Content-Type` de la URL remota — avisa sin bloquear la vista, salvo el tamaño (máximo 4 MB), que sí bloquea el procesamiento.
 - Valida el certificado contra el **XSD oficial de ALADI** que le corresponde según su versión y etapa de emisión (vendorizado en [`src/lib/xsd/`](src/lib/xsd/), vía [`xmllint-wasm`](src/app/api/validate-xsd/route.js)) — avisa sin bloquear la vista.
 - Muestra cada campo del certificado marcando si es **obligatorio**, **opcional** o **no corresponde**, según la combinación de versión del COD (`CODVer`) y acuerdo comercial (`AgreementAcronym`). Esas reglas están tabuladas en [`src/components/xml-specifications.js`](src/components/xml-specifications.js), documentadas en detalle en [`docs/BUSINESS_RULES.md`](docs/BUSINESS_RULES.md).

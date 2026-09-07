@@ -21,6 +21,19 @@ import { validateEncoding, validateStructure, validateSize, validateBOM, decodeX
 import { getEmissionStage, validateSubmitterType, checkSignatureIntegrity, checkXsdValidation } from './signature-utils';
 import { APP_NAME, APP_VERSION } from '@/lib/app-version';
 
+const getFilenameFromUrl = (url) => {
+  try {
+    const pathname = new URL(url).pathname;
+    const basename = pathname.split('/').filter(Boolean).pop();
+    if (basename && basename.toLowerCase().endsWith('.xml')) {
+      return basename;
+    }
+  } catch {
+    // URL inválida o sin path utilizable: se usa el nombre por defecto.
+  }
+  return 'certificado.xml';
+};
+
 const CODViewer = () => {
   const [xmlData, setXmlData] = useState(null);
   const [error, setError] = useState(null);
@@ -34,6 +47,7 @@ const CODViewer = () => {
   const [emissionStage, setEmissionStage] = useState(null);
   const [signatureIntegrity, setSignatureIntegrity] = useState({});
   const [xsdValidation, setXsdValidation] = useState(null);
+  const [downloadInfo, setDownloadInfo] = useState(null);
 
   const getFieldRequirement = (elementName) => {
     return getFieldRequirementSpec(xmlSpecifications, currentVersion, currentAgreement, elementName);
@@ -183,6 +197,7 @@ const CODViewer = () => {
   const handleFileUpload = async (event) => {
     try {
       setError(null);
+      setDownloadInfo(null);
       const file = event.target.files[0];
       if (!file) return;
 
@@ -225,6 +240,20 @@ const CODViewer = () => {
     }
   };
 
+  const handleDownload = () => {
+    if (!downloadInfo) return;
+
+    const blob = new Blob([downloadInfo.content], { type: 'application/xml' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = downloadInfo.filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   useEffect(() => {
     setXmlSpecifications(XML_SPECIFICATIONS);
   }, []);
@@ -255,6 +284,7 @@ const CODViewer = () => {
                 }
                 const { content, hasBOM } = decodeXmlBytes(buffer);
                 processXML(content, { hasBOM });
+                setDownloadInfo({ content, filename: getFilenameFromUrl(xmlUri) });
             }
         } catch (err) {
             setError('Error al cargar el XML desde URL: ' + err.message);
@@ -369,6 +399,15 @@ const CODViewer = () => {
               className="hidden"
             />
           </label>
+          {downloadInfo && (
+            <button
+              onClick={handleDownload}
+              className="btn-primary cursor-pointer text-center flex items-center justify-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Descargar
+            </button>
+          )}
         </div>
       </CardHeader>
       <CardContent>

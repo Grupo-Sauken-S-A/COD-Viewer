@@ -5,6 +5,11 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.4.0] - 2026-09-07
+
+### Added
+- Botón **"Descargar"** en la pantalla de visualización, junto a "Ver en PDF" y "Cargar otro archivo": solo aparece cuando el XML se cargó vía el parámetro `?xmlUri=` (no cuando se seleccionó un archivo manualmente), y permite bajar a disco el contenido original tal cual se recibió, sin pasar por el servidor. El nombre del archivo se toma del último segmento de la URL de origen si termina en `.xml`, o `certificado.xml` en caso contrario.
+
 ## [1.3.0] - 2026-09-04
 
 ### Added
