@@ -26,7 +26,7 @@ Casi toda la lógica de esta app gira en torno a dos datos que trae el propio XM
 - **`<CODVer>`**: la versión del estándar COD (hoy: `1.8.0`, `1.8.2`, `1.8.3`, `4.1.1`).
 - **`<AgreementAcronym>`**: el acuerdo comercial bajo el que se emite (`A18`, `A35`, `A72`, y los "hijos" `A13`/`A14`/`A57` que se validan como `A18`).
 
-Cruzando estos dos valores, una tabla de 76 elementos (`src/components/xml-specifications.js`) dice, para cada campo del certificado, si es **M**andatorio, **O**pcional o **N**o **C**orresponde — y de eso depende si el campo se muestra, si se resalta como obligatorio, o si se oculta directamente. Ver [`BUSINESS_RULES.md` §2-4](BUSINESS_RULES.md#2-versiones-de-cod) para el detalle de versiones, el mapeo de acuerdos (y por qué A13/A14/A57 validan como A18) y la tabla completa.
+Cruzando estos dos valores, una tabla de 83 elementos (`src/components/xml-specifications.js`) dice, para cada campo del certificado, si es **M**andatorio, **O**pcional o **N**o **C**orresponde — y de eso depende si el campo se muestra, si se resalta como obligatorio, o si se oculta directamente. Ver [`BUSINESS_RULES.md` §2-4](BUSINESS_RULES.md#2-versiones-de-cod) para el detalle de versiones, el mapeo de acuerdos (y por qué A13/A14/A57 validan como A18) y la tabla completa.
 
 ## 4. Firmas digitales: qué se verifica y qué no
 
@@ -59,7 +59,7 @@ src/
     signature-components.js    # UI: campos, alertas (validación de entrada,
                                 # elementos inesperados, etapa de emisión)
     signature-utils.js         # firmas digitales + etapa de emisión (sin UI)
-    xml-specifications.js      # la tabla M/O/NC (76 elementos × versión × acuerdo)
+    xml-specifications.js      # la tabla M/O/NC (83 elementos × versión × acuerdo)
     country-codes.js           # códigos de país → nombre
   lib/
     cod-spec.js                 # reglas de requerimiento de campo + alternancia,

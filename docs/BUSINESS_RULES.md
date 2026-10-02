@@ -140,9 +140,9 @@ Los formularios en papel se nombran "F. ACE 18", "F. ACE 14", "F. ACE 35", "F. A
 
 ## 4. La tabla de requerimientos M/O/NC
 
-Vive en `src/components/xml-specifications.js`, objeto `XML_SPECIFICATIONS.especificaciones`. Es una tabla de **76 elementos** × 4 versiones × 3 acuerdos (A18/A35/A72 — los acuerdos "hijos" A13/A14/A57 usan la columna A18 vía el mapeo de la sección 3).
+Vive en `src/components/xml-specifications.js`, objeto `XML_SPECIFICATIONS.especificaciones`. Es una tabla de **83 elementos** × 4 versiones × 3 acuerdos (A18/A35/A72 — los acuerdos "hijos" A13/A14/A57 usan la columna A18 vía el mapeo de la sección 3).
 
-> **Nota de datos**: `XML_SPECIFICATIONS.metadata.total_elementos` dice `72`, pero hay **76** elementos reales en la tabla — el contador quedó desactualizado. No lo lee ningún código en runtime, pero conviene saberlo si se lo va a mantener a mano.
+> **Nota de datos**: `XML_SPECIFICATIONS.metadata.total_elementos` se mantiene a mano (hoy `83`, actualizado en v1.4.1; antes decía `72` con 77 reales). No lo lee ningún código en runtime, pero conviene actualizarlo si se agregan filas.
 
 ### Los tres valores posibles y cómo se muestran
 
@@ -156,14 +156,15 @@ Implementado en `getFieldRequirement()` (`src/lib/cod-spec.js`) + `shouldShowFie
 
 ### Verificación contra la documentación oficial
 
-Se comparó programáticamente la columna **4.1.1** de esta tabla contra las Tablas 4 (ACE18/A18), 7 (ACE35/A35) y 15 (ACE72/A72) de `ALADI_SEC_di2327_Rev13.pdf`: **coincidencia perfecta, cero diferencias de valor** (el PDF usa "F"/Facultativo donde el código usa "O"/Opcional — mismo significado).
+Se comparó programáticamente la columna **4.1.1** de esta tabla contra las Tablas 4 (ACE18/A18), 7 (ACE35/A35) y 15 (ACE72/A72) de `ALADI_SEC_di2327_Rev13.pdf`: **coincidencia perfecta, cero diferencias de valor** (el PDF usa "F"/Facultativo donde el código usa "O"/Opcional — mismo significado). *Salvedad (corregida en v1.4.1):* esa comparación no detectó que `ExporterFax`/`ImporterFax` en A35/A72 estaban en NC en la tabla; la matriz del Anexo 5 de Rev13 los marca O. Auditoría de v1.4.1: cruce programático de la matriz del Anexo 5 (los 3 acuerdos) y de los XSD contra la tabla — las únicas diferencias son las excepciones listadas abajo.
 
 **Excepciones deliberadas respecto de Rev13** (el XSD acepta el campo sin error aunque ALADI lo marca NC, y existen COD reales con él — se cargan como `O` para no marcarlos como inesperados): `EHFax` y `CertificateControlCode` (4.1.1, todos los acuerdos), `EHComments` (4.1.1), `ThirdOpStatement` (1.8.x, A18/A35). Además `ExporterFax`/`ImporterFax` en A35/A72 de 4.1.1 son `O` porque Rev13 (Anexo 5) los marca O ahí. **`PACComments`/`PACInputsOrderNo`/`PACInputsComment`/`HSVer`** son la excepción inversa: ALADI los admite (F) pero el dueño del proyecto decidió que no se usan, así que se cargan NC y, si vienen con contenido, se reportan en la alerta de datos inesperados. **A72 no existe antes de 1.8.3**: `validateStructure` advierte si aparece con `CODVer` 1.8.0/1.8.2.
 
 ### Elementos de la tabla nunca usados en el código
 
 - **`GoodsInvoiceOrderNo`**: confirmado por el dueño del proyecto que no hace falta mostrarlo.
-- **`PACComments`** y **`HSVer`**: existen en el estándar ALADI (específicos de A18, ninguno es M) pero confirmados como no usados en los acuerdos vigentes actuales — decisión consciente de no agregarlos a la UI.
+- **`PACComments`**, **`PACInputsOrderNo`**, **`PACInputsComment`** y **`HSVer`**: existen en el estándar ALADI (específicos de A18, ninguno es M) pero confirmados como no usados — decisión consciente de no mostrarlos. Desde v1.4.1 están en la tabla como `NC` en todas las combinaciones: si vienen con contenido, no se muestran y se reportan en la alerta de datos inesperados.
+- **`LocalCurrency`**: se usó hasta 1.8.3 (solo A18) y se eliminó después; está en la tabla como `O` en A18 de 1.8.x y `NC` en 4.1.1. No se muestra.
 - **`UnloadingPortName`** ("Puerto de Descarga", contraparte de `TransportPortOfLoading`/"Puerto de Carga", que sí se muestra): confirmado por el dueño del proyecto (2026-09-03) que **nunca se usó** en ningún COD real de los acuerdos/versiones que maneja esta app — se cargó en la tabla como M en casi todas las combinaciones (venía así del estándar ALADI/Rev13), pero en la práctica no aporta nada y no debe mostrarse nunca. Se bajó a `O` en las 12 combinaciones para que, si alguna vez aparece con contenido en un XML real, no se marque como "dato inesperado" (`getUnexpectedElements` solo reporta elementos que deberían ser `NC`) — y sigue sin tener ningún código que lo lea o lo muestre, a propósito.
 - **`InvoiceQty`** y **`GoodsQty`**: sí se leen, pero **solo** para decidir si se muestra la sección "Facturas Comerciales"/"Lista de Mercaderías" — su valor nunca se pinta como campo visible.
 
@@ -280,11 +281,11 @@ Verificado contra los 6 XML reales de `test/fixtures/real/`: los 6 validan limpi
 
 ## 7. Detección de elementos con datos inesperados
 
-`getUnexpectedElements()` (`src/lib/cod-spec.js`) recorre las ~77 claves conocidas de `xml-specifications.js`; para cada una, calcula el requerimiento según versión/acuerdo actual, y si da `NC` pero el XML tiene contenido no vacío para ese tag en cualquier parte del documento, lo reporta. Se muestra vía `UnexpectedElementsAlert`, sin ocultar el resto del certificado.
+`getUnexpectedElements()` (`src/lib/cod-spec.js`) recorre las 83 claves conocidas de `xml-specifications.js`; para cada una, calcula el requerimiento según versión/acuerdo actual, y si da `NC` pero el XML tiene contenido no vacío para ese tag en cualquier parte del documento, lo reporta. Se muestra vía `UnexpectedElementsAlert`, sin ocultar el resto del certificado.
 
 **Acotado a los elementos de la tabla, no a un escaneo libre de todo el XML** — evita falsos positivos de elementos estructurales (`<Goods>`, `<Signature>`, wrappers de firma) que no tienen semántica M/O/NC.
 
-**`CertificateControlCode` y `EHFax` en 4.1.1 (resuelto, 2026-09-03):** ambos aparecían con datos en certificados A18/4.1.1 reales aunque la tabla decía NC. Causa confirmada por el dueño del proyecto: el sistema de gestión de certificados de Sauken tenía un bug (que están corrigiendo del lado de ellos) que incluía estos dos campos administrativos en COD 4.1.1 aunque la normativa ALADI los marca NC para esa versión — el XSD real los acepta igual, sin error de validación. Como ya existen muchos COD 4.1.1 emitidos con estos datos (y no van a dejar de existir aunque el bug se corrija a futuro), ambos se cargaron como `O` (Facultativo) en las 12 combinaciones de la tabla, para que nunca se marquen como "dato inesperado".
+**`CertificateControlCode` y `EHFax` en 4.1.1 (resuelto, 2026-09-03):** ambos aparecían con datos en certificados A18/4.1.1 reales aunque la tabla decía NC. Causa confirmada por el dueño del proyecto: el sistema de gestión de certificados de Sauken tenía un bug (que están corrigiendo del lado de ellos) que incluía estos dos campos administrativos en COD 4.1.1 aunque la normativa ALADI los marca NC para esa versión — el XSD real los acepta igual, sin error de validación. Como ya existen muchos COD 4.1.1 emitidos con estos datos (y no van a dejar de existir aunque el bug se corrija a futuro), ambos se cargaron como `O` (Facultativo) en las 12 combinaciones de la tabla, para que nunca se marquen como "dato inesperado". El mismo criterio se extendió en v1.4.1 a otros campos que el XSD acepta aunque ALADI los marca NC (ver "Excepciones deliberadas" en la sección 4).
 
 ## 8. Firmas digitales
 

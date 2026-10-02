@@ -18,7 +18,7 @@ export const XML_SPECIFICATIONS = {
       "NC": "No Corresponde"
     },
     "fecha_generacion": "2025-08-04",
-    "total_elementos": 72
+    "total_elementos": 83
   },
   "especificaciones": {
     "<Affidavit>": {
