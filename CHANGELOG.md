@@ -5,6 +5,11 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.4.2] - 2026-10-02
+
+### Security
+- Actualización de dependencias vía `npm audit fix` (solo `package-lock.json`, sin cambios de código): `next` 16.3.4 → 16.3.8 (crítica: ejecución remota de código en `next/og` `ImageResponse`), `undici` 8.10.1 → 8.11.2 (alta), `brace-expansion` 2.1.4 → 2.1.7 (alta), `dompurify` 3.4.14 → 3.4.16 y `fflate` 0.8.2 → 0.8.3. `npm audit` pasa de 5 vulnerabilidades a 0. Corresponde a lo que ya se había aplicado a mano en el servidor de producción tras el deploy de v1.4.1, para que el repo y producción vuelvan a coincidir.
+
 ## [1.4.1] - 2026-10-02
 
 ### Fixed
