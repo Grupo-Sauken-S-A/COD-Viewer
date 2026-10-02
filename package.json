@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
-    "@babel/preset-env": "^7.26.0",
+    "@babel/preset-env": "^8.0.2",
     "@babel/preset-react": "^7.26.3",
     "@shadcn/ui": "^0.0.4",
     "@types/node": "^20.4.5",
