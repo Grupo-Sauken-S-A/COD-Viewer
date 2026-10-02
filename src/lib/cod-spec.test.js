@@ -66,15 +66,41 @@ describe('getFieldRequirement', () => {
     expect(getFieldRequirement(XML_SPECIFICATIONS, '4.1.1', 'A57', 'Affidavit')).toBe('M');
   });
 
-  it('ExporterFax e ImporterFax ya no existen en 4.1.1: NC en todos los acuerdos', () => {
-    // Regresión: el XSD real de 4.1.1 no tiene estos dos campos Fax (confirmado por el usuario);
-    // la tabla tenía A35/A72 en O por error, heredado de las versiones 1.8.x donde sí existen.
-    // EHFax es un caso aparte (ver siguiente test) — no va en este grupo.
+  it('ExporterFax e ImporterFax: NC solo en A18 de 4.1.1; Facultativos en A35 y A72', () => {
+    // El XSD de 4.1.1 los define solo para A35/A72 (Rev13 también los marca O ahí); en A18 el esquema
+    // no los tiene (NC en la tabla de ALADI).
     for (const field of ['ExporterFax', 'ImporterFax']) {
-      for (const agreement of ['A18', 'A35', 'A72']) {
-        expect(getFieldRequirement(XML_SPECIFICATIONS, '4.1.1', agreement, field)).toBe('NC');
+      expect(getFieldRequirement(XML_SPECIFICATIONS, '4.1.1', 'A18', field)).toBe('NC');
+      for (const agreement of ['A35', 'A72']) {
+        expect(getFieldRequirement(XML_SPECIFICATIONS, '4.1.1', agreement, field)).toBe('O');
       }
     }
+  });
+
+  it('ThirdOpStatement es Facultativo en A18/A35 de 1.8.x (el XSD lo admite)', () => {
+    for (const version of ['1.8.0', '1.8.2', '1.8.3']) {
+      for (const agreement of ['A18', 'A35']) {
+        expect(getFieldRequirement(XML_SPECIFICATIONS, version, agreement, 'ThirdOpStatement')).toBe('O');
+      }
+    }
+  });
+
+  it('EHComments es Facultativo en 4.1.1 (el XSD lo admite aunque ALADI lo marca NC)', () => {
+    for (const agreement of ['A18', 'A35', 'A72']) {
+      expect(getFieldRequirement(XML_SPECIFICATIONS, '4.1.1', agreement, 'EHComments')).toBe('O');
+    }
+  });
+
+  it('PAC* y HSVer son NC siempre (no se usan); LocalCurrency solo existió hasta 1.8.3', () => {
+    for (const field of ['PACComments', 'PACInputsOrderNo', 'PACInputsComment', 'HSVer']) {
+      for (const version of ['1.8.0', '1.8.2', '1.8.3', '4.1.1']) {
+        for (const agreement of ['A18', 'A35', 'A72']) {
+          expect(getFieldRequirement(XML_SPECIFICATIONS, version, agreement, field)).toBe('NC');
+        }
+      }
+    }
+    expect(getFieldRequirement(XML_SPECIFICATIONS, '1.8.3', 'A18', 'LocalCurrency')).toBe('O');
+    expect(getFieldRequirement(XML_SPECIFICATIONS, '4.1.1', 'A18', 'LocalCurrency')).toBe('NC');
   });
 
   it('CertificateControlCode y EHFax son Facultativos (no NC) en 4.1.1 para todos los acuerdos', () => {
@@ -171,7 +197,7 @@ describe('getOperatorContent (familias Op3c / ThirdOp, nunca vienen ambas)', () 
 
   it('devuelve NC si ninguna familia aplica', () => {
     const xmlDoc = parseFragment('<root></root>');
-    const result = getOperatorContent(XML_SPECIFICATIONS, '1.8.0', 'A18', xmlDoc, 'Statement');
+    const result = getOperatorContent(XML_SPECIFICATIONS, '1.8.0', 'A18', xmlDoc, 'City');
     expect(result.requirement).toBe('NC');
     expect(result.family).toBeNull();
   });
@@ -203,6 +229,12 @@ describe('getUnexpectedElements', () => {
     const xmlDoc = parseFragment('<root><Affidavit>si</Affidavit></root>');
     const unexpected = getUnexpectedElements(XML_SPECIFICATIONS, '4.1.1', 'A18', xmlDoc);
     expect(unexpected.find((u) => u.tag === 'Affidavit')).toBeUndefined();
+  });
+
+  it('reporta PAC* y HSVer con contenido (no se usan) en vez de mostrarlos', () => {
+    const xmlDoc = parseFragment('<root><PACComments>x</PACComments><HSVer>2017</HSVer></root>');
+    const unexpected = getUnexpectedElements(XML_SPECIFICATIONS, '4.1.1', 'A18', xmlDoc);
+    expect(unexpected.map((u) => u.tag).sort()).toEqual(['HSVer', 'PACComments']);
   });
 
   it('devuelve [] si falta algún parámetro', () => {

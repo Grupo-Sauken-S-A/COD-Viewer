@@ -5,6 +5,15 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.4.1] - 2026-10-02
+
+### Fixed
+- Auditoría de campos que ALADI marca NC pero el XSD acepta sin error (cruce de la tabla M/O/NC contra los XSD y la matriz del Anexo 5 de Rev13). Pasan a **O** (no se reportan como "dato inesperado"), mismo criterio que `EHFax`: `ExporterFax` e `ImporterFax` en **A35 y A72** de 4.1.1 (en A18 siguen NC — corrige el cambio de v1.2.0, que los había dejado NC también en A35/A72 aunque Rev13 y el XSD los admiten ahí), `ThirdOpStatement` en A18/A35 de 1.8.x y `EHComments` en 4.1.1.
+- `PACComments`, `PACInputsOrderNo`, `PACInputsComment` y `HSVer` se cargan como **NC** en todas las combinaciones (no se usan): si vienen con contenido no se muestran y aparecen en la alerta de datos inesperados. `LocalCurrency` se carga como O en A18 de 1.8.x y NC en 4.1.1 (se eliminó después de 1.8.3).
+
+### Added
+- Advertencia de entrada si el acuerdo es **A72** en una versión de COD anterior a 1.8.3 (A72 no existía antes).
+
 ## [1.4.0] - 2026-09-07
 
 ### Added

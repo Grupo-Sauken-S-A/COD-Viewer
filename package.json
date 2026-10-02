@@ -1,6 +1,6 @@
 {
   "name": "cod-viewer",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Visualizador de Certificados de Origen Digital (COD) ALADI/MERCOSUR.",
   "private": true,
   "license": "GPL-2.0",

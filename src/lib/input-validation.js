@@ -78,6 +78,11 @@ export const validateStructure = (xmlDoc, xmlSpecifications) => {
     warnings.push(`El acuerdo "${agreement}" no es uno de los acuerdos reconocidos por esta aplicación (${KNOWN_AGREEMENTS.join(', ')}).`);
   }
 
+  // A72 recién existe desde 1.8.3 (confirmado por el dueño del proyecto): en una versión anterior es un error del emisor.
+  if (agreement === 'A72' && (version === '1.8.0' || version === '1.8.2')) {
+    warnings.push(`El acuerdo A72 no existe en la versión de COD ${version} — recién se incorporó en la 1.8.3. El certificado es erróneo.`);
+  }
+
   if (xmlDoc.getElementById('COD') === null) {
     warnings.push('No se encontró el elemento <COD id="COD"> — falta la estructura básica de un COD.');
   }

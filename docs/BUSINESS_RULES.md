@@ -158,6 +158,8 @@ Implementado en `getFieldRequirement()` (`src/lib/cod-spec.js`) + `shouldShowFie
 
 Se comparó programáticamente la columna **4.1.1** de esta tabla contra las Tablas 4 (ACE18/A18), 7 (ACE35/A35) y 15 (ACE72/A72) de `ALADI_SEC_di2327_Rev13.pdf`: **coincidencia perfecta, cero diferencias de valor** (el PDF usa "F"/Facultativo donde el código usa "O"/Opcional — mismo significado).
 
+**Excepciones deliberadas respecto de Rev13** (el XSD acepta el campo sin error aunque ALADI lo marca NC, y existen COD reales con él — se cargan como `O` para no marcarlos como inesperados): `EHFax` y `CertificateControlCode` (4.1.1, todos los acuerdos), `EHComments` (4.1.1), `ThirdOpStatement` (1.8.x, A18/A35). Además `ExporterFax`/`ImporterFax` en A35/A72 de 4.1.1 son `O` porque Rev13 (Anexo 5) los marca O ahí. **`PACComments`/`PACInputsOrderNo`/`PACInputsComment`/`HSVer`** son la excepción inversa: ALADI los admite (F) pero el dueño del proyecto decidió que no se usan, así que se cargan NC y, si vienen con contenido, se reportan en la alerta de datos inesperados. **A72 no existe antes de 1.8.3**: `validateStructure` advierte si aparece con `CODVer` 1.8.0/1.8.2.
+
 ### Elementos de la tabla nunca usados en el código
 
 - **`GoodsInvoiceOrderNo`**: confirmado por el dueño del proyecto que no hace falta mostrarlo.

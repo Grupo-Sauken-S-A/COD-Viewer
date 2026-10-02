@@ -52,6 +52,17 @@ describe('validateStructure', () => {
     expect(warnings.some((w) => w.includes('9.9.9'))).toBe(true);
   });
 
+  it('advierte si el acuerdo es A72 en una versión anterior a 1.8.3 (A72 no existía)', () => {
+    for (const version of ['1.8.0', '1.8.2']) {
+      const doc = parse(`<CODEH id="CODEH"><COD id="COD"><CODVer>${version}</CODVer><AgreementAcronym>A72</AgreementAcronym></COD></CODEH>`);
+      expect(validateStructure(doc, XML_SPECIFICATIONS).some((w) => w.includes('A72'))).toBe(true);
+    }
+    for (const version of ['1.8.3', '4.1.1']) {
+      const doc = parse(`<CODEH id="CODEH"><COD id="COD"><CODVer>${version}</CODVer><AgreementAcronym>A72</AgreementAcronym></COD></CODEH>`);
+      expect(validateStructure(doc, XML_SPECIFICATIONS).some((w) => w.includes('A72'))).toBe(false);
+    }
+  });
+
   it('advierte si falta <AgreementAcronym>', () => {
     const doc = parse('<CODEH id="CODEH"><COD id="COD"><CODVer>4.1.1</CODVer></COD></CODEH>');
     const warnings = validateStructure(doc, XML_SPECIFICATIONS);
