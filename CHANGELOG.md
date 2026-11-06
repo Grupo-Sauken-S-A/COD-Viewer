@@ -5,6 +5,12 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.4.3] - 2026-11-06
+
+### Security
+- Se integra el PR de Dependabot #17 (`next` ^16.4.2, `xml-crypto` 6.4.0, `jsdom`, `postcss`, `autoprefixer`, `@radix-ui/react-alert-dialog`, `jspdf-autotable` 5.0.9) y se corre `npm audit fix`: corrige `next` (crítica), `dompurify` (crítica), `sharp`, `source-map-js`, `undici`, `vite` y otras transitivas.
+- Se elimina la dependencia `@shadcn/ui` 0.0.4 (abandonada y sin uso en el código), que traía `zod` vulnerable (DoS por memoria) sin parche disponible. `npm audit` pasa de 14 vulnerabilidades a 0.
+
 ## [1.4.2] - 2026-10-02
 
 ### Security
